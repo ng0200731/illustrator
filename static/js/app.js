@@ -435,6 +435,39 @@
         };
     }
 
+    function calcPrintingRegions(tpl) {
+        var top = tpl.padding.top;
+        var bottom = tpl.padding.bottom;
+        var left = tpl.padding.left;
+        var right = tpl.padding.right;
+
+        // Sewing: distance + sewing padding overrides
+        var sewTotal = tpl.sewing.distance + tpl.sewing.padding;
+        if (tpl.sewing.position !== "none" && tpl.sewing.distance > 0) {
+            if (tpl.sewing.position === "top" && sewTotal > top) top = sewTotal;
+            if (tpl.sewing.position === "bottom" && sewTotal > bottom) bottom = sewTotal;
+            if (tpl.sewing.position === "left" && sewTotal > left) left = sewTotal;
+            if (tpl.sewing.position === "right" && sewTotal > right) right = sewTotal;
+        }
+
+        var regions = [];
+        if (tpl.folding.type === "mid") {
+            var fp = tpl.folding.padding;
+            if (tpl.orientation === "vertical") {
+                var midY = tpl.height / 2;
+                regions.push({ x: left, y: top, w: tpl.width - left - right, h: midY - fp - top });
+                regions.push({ x: left, y: midY + fp, w: tpl.width - left - right, h: tpl.height - bottom - (midY + fp) });
+            } else {
+                var midX = tpl.width / 2;
+                regions.push({ x: left, y: top, w: midX - fp - left, h: tpl.height - top - bottom });
+                regions.push({ x: midX + fp, y: top, w: tpl.width - right - (midX + fp), h: tpl.height - top - bottom });
+            }
+        } else {
+            regions.push({ x: left, y: top, w: tpl.width - left - right, h: tpl.height - top - bottom });
+        }
+        return regions;
+    }
+
     function renderTemplatePreview() {
         var tpl = getTemplateFormData();
         var preview = document.getElementById("template-preview");
@@ -497,26 +530,57 @@
             }
             canvas.appendChild(sewLine);
             canvas.appendChild(sewLabel);
+
+            // Sewing padding lines
+            if (tpl.sewing.padding > 0) {
+                var sewPos = tpl.sewing.position;
+                var sewDist = tpl.sewing.distance;
+                var sp = tpl.sewing.padding;
+                if (sewPos === "top" || sewPos === "bottom") {
+                    var baseY = sewPos === "top" ? sewDist : (tpl.height - sewDist);
+                    var line1 = document.createElement("div");
+                    line1.className = "sewing-line horizontal";
+                    line1.style.top = ((baseY - sp) * tplScale) + "px";
+                    canvas.appendChild(line1);
+                    var line2 = document.createElement("div");
+                    line2.className = "sewing-line horizontal";
+                    line2.style.top = ((baseY + sp) * tplScale) + "px";
+                    canvas.appendChild(line2);
+                } else {
+                    var baseX = sewPos === "left" ? sewDist : (tpl.width - sewDist);
+                    var line1v = document.createElement("div");
+                    line1v.className = "sewing-line vertical";
+                    line1v.style.left = ((baseX - sp) * tplScale) + "px";
+                    canvas.appendChild(line1v);
+                    var line2v = document.createElement("div");
+                    line2v.className = "sewing-line vertical";
+                    line2v.style.left = ((baseX + sp) * tplScale) + "px";
+                    canvas.appendChild(line2v);
+                }
+            }
         }
 
-        // Printing area (effective area after padding + sewing)
-        var pa = calcPrintingArea(tpl);
-        if (pa.w > 0 && pa.h > 0) {
-            var printRect = document.createElement("div");
-            printRect.className = "dotted-rect printing-area";
-            printRect.style.left = (pa.x * tplScale) + "px";
-            printRect.style.top = (pa.y * tplScale) + "px";
-            printRect.style.width = (pa.w * tplScale) + "px";
-            printRect.style.height = (pa.h * tplScale) + "px";
-            canvas.appendChild(printRect);
+        // Printing regions (red solid rectangles)
+        var regions = calcPrintingRegions(tpl);
+        regions.forEach(function (r) {
+            if (r.w > 0 && r.h > 0) {
+                var el = document.createElement("div");
+                el.className = "printing-region";
+                el.style.left = (r.x * tplScale) + "px";
+                el.style.top = (r.y * tplScale) + "px";
+                el.style.width = (r.w * tplScale) + "px";
+                el.style.height = (r.h * tplScale) + "px";
+                canvas.appendChild(el);
 
-            var paLabel = document.createElement("div");
-            paLabel.className = "canvas-label";
-            paLabel.textContent = "print " + pa.w.toFixed(1) + "x" + pa.h.toFixed(1) + "mm";
-            paLabel.style.left = (pa.x * tplScale + 2) + "px";
-            paLabel.style.top = (pa.y * tplScale + 2) + "px";
-            canvas.appendChild(paLabel);
-        }
+                var lbl = document.createElement("div");
+                lbl.className = "canvas-label";
+                lbl.style.color = "red";
+                lbl.textContent = r.w.toFixed(1) + "x" + r.h.toFixed(1) + "mm";
+                lbl.style.left = (r.x * tplScale + 2) + "px";
+                lbl.style.top = (r.y * tplScale + 2) + "px";
+                canvas.appendChild(lbl);
+            }
+        });
 
         // Fold line
         if (tpl.folding.type === "mid") {
@@ -543,6 +607,32 @@
             }
             canvas.appendChild(foldLine);
             canvas.appendChild(foldLabel);
+
+            // Fold padding lines
+            if (tpl.folding.padding > 0) {
+                var fp = tpl.folding.padding;
+                if (tpl.orientation === "vertical") {
+                    var midY = tpl.height / 2;
+                    var fl1 = document.createElement("div");
+                    fl1.className = "fold-line horizontal";
+                    fl1.style.top = ((midY - fp) * tplScale) + "px";
+                    canvas.appendChild(fl1);
+                    var fl2 = document.createElement("div");
+                    fl2.className = "fold-line horizontal";
+                    fl2.style.top = ((midY + fp) * tplScale) + "px";
+                    canvas.appendChild(fl2);
+                } else {
+                    var midX = tpl.width / 2;
+                    var fl1v = document.createElement("div");
+                    fl1v.className = "fold-line vertical";
+                    fl1v.style.left = ((midX - fp) * tplScale) + "px";
+                    canvas.appendChild(fl1v);
+                    var fl2v = document.createElement("div");
+                    fl2v.className = "fold-line vertical";
+                    fl2v.style.left = ((midX + fp) * tplScale) + "px";
+                    canvas.appendChild(fl2v);
+                }
+            }
         }
 
         // Size + orientation label

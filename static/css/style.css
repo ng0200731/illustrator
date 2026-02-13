@@ -441,6 +441,12 @@ tbody tr:hover {
     border-style: dashed;
 }
 
+.label-canvas .printing-region {
+    position: absolute;
+    border: 2px solid red;
+    pointer-events: none;
+}
+
 .label-canvas .sewing-line {
     position: absolute;
     border: 0;
@@ -467,14 +473,14 @@ tbody tr:hover {
 }
 
 .label-canvas .fold-line.horizontal {
-    border-top: 2px dashed #aaa;
+    border-top: 2px dotted green;
     height: 0;
     left: 0;
     right: 0;
 }
 
 .label-canvas .fold-line.vertical {
-    border-left: 2px dashed #aaa;
+    border-left: 2px dotted green;
     width: 0;
     top: 0;
     bottom: 0;
