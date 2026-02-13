@@ -448,14 +448,14 @@ tbody tr:hover {
 }
 
 .label-canvas .sewing-line.horizontal {
-    border-top: 1px dashed #666;
+    border-top: 2px dotted red;
     height: 0;
     left: 0;
     right: 0;
 }
 
 .label-canvas .sewing-line.vertical {
-    border-left: 1px dashed #666;
+    border-left: 2px dotted red;
     width: 0;
     top: 0;
     bottom: 0;
