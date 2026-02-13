@@ -187,8 +187,8 @@
                                     <fieldset>
                                         <legend>Size &amp; Orientation</legend>
                                         <div class="input-row">
-                                            <div><label for="tpl-width">Width (mm)</label><input type="number" id="tpl-width" min="5" max="500" step="0.1" value="50"></div>
-                                            <div><label for="tpl-height">Height (mm)</label><input type="number" id="tpl-height" min="5" max="500" step="0.1" value="80"></div>
+                                            <div><label for="tpl-width">Width (mm)</label><input type="number" id="tpl-width" min="0" max="500" step="0.1"></div>
+                                            <div><label for="tpl-height">Height (mm)</label><input type="number" id="tpl-height" min="0" max="500" step="0.1"></div>
                                         </div>
                                         <label for="tpl-orientation">Orientation</label>
                                         <select id="tpl-orientation">
@@ -237,7 +237,6 @@
                                         </div>
                                     </fieldset>
                                     <div class="form-actions">
-                                        <button type="button" id="btn-tpl-preview">Preview</button>
                                         <button type="submit">Save</button>
                                         <button type="reset" class="btn-outline">Cancel</button>
                                         <button type="button" class="btn-outline btn-dummy" data-form="template-create">Dummy</button>

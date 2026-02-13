@@ -316,12 +316,11 @@
     var tplScale = 3;
 
     // Enforce sewing distance >= padding on selected side
-    document.getElementById("tpl-sew-position").addEventListener("change", function () {
-        var pos = this.value;
+    function enforceSewingMin() {
+        var pos = document.getElementById("tpl-sew-position").value;
         var distInput = document.getElementById("tpl-sew-distance");
         if (pos === "none") {
             distInput.min = "0";
-            distInput.value = "0";
             return;
         }
         var padVal = parseFloat(document.getElementById("tpl-pad-" + pos).value) || 0;
@@ -329,16 +328,43 @@
         if (parseFloat(distInput.value) < padVal) {
             distInput.value = padVal;
         }
+    }
+
+    document.getElementById("tpl-sew-position").addEventListener("change", function () {
+        var distInput = document.getElementById("tpl-sew-distance");
+        if (this.value === "none") { distInput.min = "0"; distInput.value = "0"; }
+        else { enforceSewingMin(); }
+        renderTemplatePreview();
     });
 
-    document.getElementById("btn-tpl-preview").addEventListener("click", renderTemplatePreview);
+    ["tpl-pad-top", "tpl-pad-bottom", "tpl-pad-left", "tpl-pad-right"].forEach(function (id) {
+        document.getElementById(id).addEventListener("input", enforceSewingMin);
+    });
+
+    document.getElementById("tpl-sew-distance").addEventListener("change", enforceSewingMin);
+
+    // Real-time preview: refresh on any template parameter change
+    ["tpl-width", "tpl-height", "tpl-pad-top", "tpl-pad-bottom", "tpl-pad-left", "tpl-pad-right",
+     "tpl-sew-distance", "tpl-sew-padding", "tpl-fold-padding"].forEach(function (id) {
+        document.getElementById(id).addEventListener("input", renderTemplatePreview);
+    });
+    document.getElementById("tpl-orientation").addEventListener("change", function () {
+        var wInput = document.getElementById("tpl-width");
+        var hInput = document.getElementById("tpl-height");
+        var tmp = wInput.value;
+        wInput.value = hInput.value;
+        hInput.value = tmp;
+        enforceSewingMin();
+        renderTemplatePreview();
+    });
+    document.getElementById("tpl-fold").addEventListener("change", renderTemplatePreview);
 
     function getTemplateFormData() {
         return {
             customerId: document.getElementById("tpl-customer").value,
             name: document.getElementById("tpl-name").value.trim(),
-            width: parseFloat(document.getElementById("tpl-width").value) || 50,
-            height: parseFloat(document.getElementById("tpl-height").value) || 80,
+            width: parseFloat(document.getElementById("tpl-width").value) || 0,
+            height: parseFloat(document.getElementById("tpl-height").value) || 0,
             orientation: document.getElementById("tpl-orientation").value,
             padding: {
                 top: parseFloat(document.getElementById("tpl-pad-top").value) || 0,
@@ -391,6 +417,10 @@
         var tpl = getTemplateFormData();
         var preview = document.getElementById("template-preview");
         preview.innerHTML = "";
+        if (!tpl.width || !tpl.height) {
+            preview.innerHTML = '<div class="preview-hint">Click "Preview" to see label layout.</div>';
+            return;
+        }
 
         // Calculate scale
         var rect = preview.getBoundingClientRect();
@@ -493,10 +523,11 @@
             canvas.appendChild(foldLabel);
         }
 
-        // Size label
+        // Size + orientation label
         var sizeLabel = document.createElement("div");
         sizeLabel.className = "scale-indicator";
-        sizeLabel.textContent = tpl.width + " x " + tpl.height + " mm";
+        var arrow = tpl.orientation === "vertical" ? "\u2195" : "\u2194";
+        sizeLabel.textContent = tpl.width + " x " + tpl.height + " mm  " + arrow + " " + tpl.orientation;
         canvas.appendChild(sizeLabel);
 
         preview.appendChild(canvas);
@@ -872,6 +903,8 @@
             document.getElementById("tpl-sew-padding").value = rand([0, 1, 2]);
             document.getElementById("tpl-fold").value = rand(["mid", "none"]);
             document.getElementById("tpl-fold-padding").value = rand([0, 1, 2]);
+            enforceSewingMin();
+            renderTemplatePreview();
         }
     };
 
