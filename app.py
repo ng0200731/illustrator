@@ -1,0 +1,311 @@
+import os
+import json
+import sqlite3
+import tempfile
+from flask import Flask, render_template, request, send_file, jsonify
+
+app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max upload
+
+TOOLS_DIR = os.path.join(os.path.dirname(__file__), "tools")
+TMP_DIR = os.path.join(os.path.dirname(__file__), ".tmp")
+os.makedirs(TMP_DIR, exist_ok=True)
+
+DB_PATH = os.path.join(TMP_DIR, "app.db")
+
+
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
+def _template_to_dict(row, partitions):
+    return {
+        "id": row["id"],
+        "customerId": row["customer_id"],
+        "name": row["name"],
+        "width": row["width"],
+        "height": row["height"],
+        "orientation": row["orientation"],
+        "padding": {
+            "top": row["pad_top"], "bottom": row["pad_bottom"],
+            "left": row["pad_left"], "right": row["pad_right"]
+        },
+        "sewing": {
+            "position": row["sew_position"], "distance": row["sew_distance"],
+            "padding": row["sew_padding"]
+        },
+        "folding": {
+            "type": row["fold_type"], "padding": row["fold_padding"]
+        },
+        "printingArea": {
+            "x": row["print_x"], "y": row["print_y"],
+            "w": row["print_w"], "h": row["print_h"]
+        },
+        "partitions": [dict(p) for p in partitions],
+        "components": []
+    }
+
+
+# Auto-init DB on first run
+if not os.path.exists(DB_PATH):
+    from tools.init_db import init_db
+    init_db()
+
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+# ==================== Customer API ====================
+
+@app.route("/api/customers", methods=["GET"])
+def api_get_customers():
+    db = get_db()
+    rows = db.execute("SELECT * FROM customers ORDER BY id").fetchall()
+    result = []
+    for r in rows:
+        c = dict(r)
+        members = db.execute(
+            "SELECT * FROM members WHERE parent_type='customer' AND parent_id=? ORDER BY id",
+            (r["id"],)
+        ).fetchall()
+        c["members"] = [dict(m) for m in members]
+        result.append(c)
+    db.close()
+    return jsonify(result)
+
+
+@app.route("/api/customers", methods=["POST"])
+def api_create_customer():
+    d = request.get_json()
+    db = get_db()
+    cur = db.execute(
+        "INSERT INTO customers (company, domain, address, phone) VALUES (?, ?, ?, ?)",
+        (d["company"], d["domain"], d.get("address", ""), d.get("phone", ""))
+    )
+    db.commit()
+    cid = cur.lastrowid
+    db.close()
+    return jsonify({"id": cid, "company": d["company"], "domain": d["domain"],
+                     "address": d.get("address", ""), "phone": d.get("phone", ""),
+                     "members": []}), 201
+
+
+@app.route("/api/customers/<int:cid>", methods=["DELETE"])
+def api_delete_customer(cid):
+    db = get_db()
+    db.execute("DELETE FROM members WHERE parent_type='customer' AND parent_id=?", (cid,))
+    db.execute("DELETE FROM customers WHERE id=?", (cid,))
+    db.commit()
+    db.close()
+    return jsonify({"ok": True})
+
+
+# ==================== Supplier API ====================
+
+@app.route("/api/suppliers", methods=["GET"])
+def api_get_suppliers():
+    db = get_db()
+    rows = db.execute("SELECT * FROM suppliers ORDER BY id").fetchall()
+    result = []
+    for r in rows:
+        s = dict(r)
+        members = db.execute(
+            "SELECT * FROM members WHERE parent_type='supplier' AND parent_id=? ORDER BY id",
+            (r["id"],)
+        ).fetchall()
+        s["members"] = [dict(m) for m in members]
+        result.append(s)
+    db.close()
+    return jsonify(result)
+
+
+@app.route("/api/suppliers", methods=["POST"])
+def api_create_supplier():
+    d = request.get_json()
+    db = get_db()
+    cur = db.execute(
+        "INSERT INTO suppliers (company, domain, address, phone) VALUES (?, ?, ?, ?)",
+        (d["company"], d["domain"], d.get("address", ""), d.get("phone", ""))
+    )
+    db.commit()
+    sid = cur.lastrowid
+    db.close()
+    return jsonify({"id": sid, "company": d["company"], "domain": d["domain"],
+                     "address": d.get("address", ""), "phone": d.get("phone", ""),
+                     "members": []}), 201
+
+
+@app.route("/api/suppliers/<int:sid>", methods=["DELETE"])
+def api_delete_supplier(sid):
+    db = get_db()
+    db.execute("DELETE FROM members WHERE parent_type='supplier' AND parent_id=?", (sid,))
+    db.execute("DELETE FROM suppliers WHERE id=?", (sid,))
+    db.commit()
+    db.close()
+    return jsonify({"ok": True})
+
+
+# ==================== Member API ====================
+
+@app.route("/api/members", methods=["POST"])
+def api_create_member():
+    d = request.get_json()
+    db = get_db()
+    cur = db.execute(
+        "INSERT INTO members (parent_type, parent_id, name, email, role, phone) VALUES (?, ?, ?, ?, ?, ?)",
+        (d["parent_type"], d["parent_id"], d["name"], d["email"], d.get("role", ""), d.get("phone", ""))
+    )
+    db.commit()
+    mid = cur.lastrowid
+    db.close()
+    return jsonify({"id": mid, "parent_type": d["parent_type"], "parent_id": d["parent_id"],
+                     "name": d["name"], "email": d["email"],
+                     "role": d.get("role", ""), "phone": d.get("phone", "")}), 201
+
+
+@app.route("/api/members/<int:mid>", methods=["DELETE"])
+def api_delete_member(mid):
+    db = get_db()
+    db.execute("DELETE FROM members WHERE id=?", (mid,))
+    db.commit()
+    db.close()
+    return jsonify({"ok": True})
+
+
+# ==================== Template API ====================
+
+@app.route("/api/templates", methods=["GET"])
+def api_get_templates():
+    db = get_db()
+    rows = db.execute("SELECT * FROM templates ORDER BY id").fetchall()
+    result = []
+    for r in rows:
+        parts = db.execute(
+            "SELECT * FROM partitions WHERE template_id=? ORDER BY id",
+            (r["id"],)
+        ).fetchall()
+        result.append(_template_to_dict(r, parts))
+    db.close()
+    return jsonify(result)
+
+
+@app.route("/api/templates", methods=["POST"])
+def api_create_template():
+    d = request.get_json()
+    pad = d.get("padding", {})
+    sew = d.get("sewing", {})
+    fold = d.get("folding", {})
+    pa = d.get("printingArea", {})
+    db = get_db()
+    cur = db.execute(
+        """INSERT INTO templates
+           (customer_id, name, width, height, orientation,
+            pad_top, pad_bottom, pad_left, pad_right,
+            sew_position, sew_distance, sew_padding,
+            fold_type, fold_padding,
+            print_x, print_y, print_w, print_h)
+           VALUES (?,?,?,?,?, ?,?,?,?, ?,?,?, ?,?, ?,?,?,?)""",
+        (d["customerId"], d["name"], d["width"], d["height"], d["orientation"],
+         pad.get("top", 0), pad.get("bottom", 0), pad.get("left", 0), pad.get("right", 0),
+         sew.get("position", "none"), sew.get("distance", 0), sew.get("padding", 0),
+         fold.get("type", "none"), fold.get("padding", 0),
+         pa.get("x", 0), pa.get("y", 0), pa.get("w", 0), pa.get("h", 0))
+    )
+    tid = cur.lastrowid
+    parts_out = []
+    for p in d.get("partitions", []):
+        pcur = db.execute(
+            "INSERT INTO partitions (template_id, label, x, y, w, h) VALUES (?,?,?,?,?,?)",
+            (tid, p["label"], p["x"], p["y"], p["w"], p["h"])
+        )
+        parts_out.append({"id": pcur.lastrowid, "template_id": tid,
+                          "label": p["label"], "x": p["x"], "y": p["y"],
+                          "w": p["w"], "h": p["h"]})
+    db.commit()
+    row = db.execute("SELECT * FROM templates WHERE id=?", (tid,)).fetchone()
+    db.close()
+    return jsonify(_template_to_dict(row, parts_out)), 201
+
+
+@app.route("/api/templates/<int:tid>", methods=["DELETE"])
+def api_delete_template(tid):
+    db = get_db()
+    db.execute("DELETE FROM partitions WHERE template_id=?", (tid,))
+    db.execute("DELETE FROM templates WHERE id=?", (tid,))
+    db.commit()
+    db.close()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/templates/<int:tid>/partitions", methods=["PUT"])
+def api_update_partitions(tid):
+    d = request.get_json()
+    db = get_db()
+    db.execute("DELETE FROM partitions WHERE template_id=?", (tid,))
+    parts_out = []
+    for p in d.get("partitions", []):
+        pcur = db.execute(
+            "INSERT INTO partitions (template_id, label, x, y, w, h) VALUES (?,?,?,?,?,?)",
+            (tid, p["label"], p["x"], p["y"], p["w"], p["h"])
+        )
+        parts_out.append({"id": pcur.lastrowid, "template_id": tid,
+                          "label": p["label"], "x": p["x"], "y": p["y"],
+                          "w": p["w"], "h": p["h"]})
+    db.commit()
+    db.close()
+    return jsonify({"partitions": parts_out})
+
+
+@app.route("/export/pdf", methods=["POST"])
+def export_pdf():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    from tools.export_pdf import generate_pdf
+
+    out_path = os.path.join(TMP_DIR, "label_export.pdf")
+    generate_pdf(data, out_path)
+    return send_file(out_path, as_attachment=True, download_name="label.pdf")
+
+
+@app.route("/export/ai", methods=["POST"])
+def export_ai():
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
+    outlined = data.get("outlined", False)
+    from tools.export_ai import generate_ai
+
+    out_path = os.path.join(TMP_DIR, "label_export.ai")
+    generate_ai(data, out_path, outlined=outlined)
+
+    dl_name = "label_outlined.ai" if outlined else "label_editable.ai"
+    return send_file(out_path, as_attachment=True, download_name=dl_name)
+
+
+@app.route("/upload/image", methods=["POST"])
+def upload_image():
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+    f = request.files["file"]
+    if f.filename == "":
+        return jsonify({"error": "No file selected"}), 400
+
+    import base64
+
+    img_data = f.read()
+    mime = f.content_type or "image/png"
+    b64 = base64.b64encode(img_data).decode("utf-8")
+    data_uri = f"data:{mime};base64,{b64}"
+    return jsonify({"dataUri": data_uri})
+
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)

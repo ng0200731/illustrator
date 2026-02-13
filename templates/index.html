@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Label Management System</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app">
+        <!-- Left Navigation -->
+        <nav class="nav-sidebar" id="nav-sidebar">
+            <div class="nav-header">Label System</div>
+            <a class="nav-item active" data-section="customer">Customer</a>
+            <a class="nav-item" data-section="supplier">Supplier</a>
+            <a class="nav-item" data-section="template">Template</a>
+            <a class="nav-item" data-section="project">Project</a>
+            <a class="nav-item" data-section="order">Order</a>
+            <a class="nav-item" data-section="status">Status</a>
+        </nav>
+
+        <!-- Right Content Area -->
+        <main class="content-area" id="content-area">
+
+            <!-- ==================== CUSTOMER ==================== -->
+            <section class="section-panel" id="section-customer">
+                <!-- Top tabs -->
+                <div class="tab-bar">
+                    <a class="tab active" data-tab="customer-create">Create</a>
+                    <a class="tab" data-tab="customer-view">View &amp; Edit</a>
+                </div>
+
+                <!-- Create: Company + Member sub-tabs -->
+                <div class="tab-content active" id="tab-customer-create">
+                    <div class="sub-tab-bar">
+                        <a class="sub-tab active" data-subtab="cust-company">Company</a>
+                        <a class="sub-tab" data-subtab="cust-member">Member</a>
+                    </div>
+
+                    <div class="sub-tab-content active" id="subtab-cust-company">
+                        <form id="form-customer-create" class="form-panel" autocomplete="off">
+                            <div class="hp-field"><input type="text" name="website" tabindex="-1" autocomplete="off"></div>
+                            <label for="cust-company">Company Name</label>
+                            <input type="text" id="cust-company" required>
+                            <label for="cust-domain">Email Domain</label>
+                            <input type="text" id="cust-domain" placeholder="example.com" required>
+                            <label for="cust-address">Address</label>
+                            <textarea id="cust-address" rows="2"></textarea>
+                            <label for="cust-phone">Phone</label>
+                            <input type="text" id="cust-phone">
+                            <div class="form-actions">
+                                <button type="submit">Save</button>
+                                <button type="reset" class="btn-outline">Cancel</button>
+                                <button type="button" class="btn-outline btn-dummy" data-form="customer-create">Dummy</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="sub-tab-content" id="subtab-cust-member">
+                        <form id="form-customer-member" class="form-panel" autocomplete="off">
+                            <div class="hp-field"><input type="text" name="website" tabindex="-1" autocomplete="off"></div>
+                            <label for="cust-member-company">Company</label>
+                            <select id="cust-member-company"></select>
+                            <label for="cust-member-name">Member Name</label>
+                            <input type="text" id="cust-member-name" required>
+                            <label for="cust-member-email">Email</label>
+                            <input type="email" id="cust-member-email" required>
+                            <label for="cust-member-role">Role</label>
+                            <input type="text" id="cust-member-role">
+                            <label for="cust-member-phone">Phone</label>
+                            <input type="text" id="cust-member-phone">
+                            <div class="form-actions">
+                                <button type="submit">Save</button>
+                                <button type="reset" class="btn-outline">Cancel</button>
+                                <button type="button" class="btn-outline btn-dummy" data-form="customer-member">Dummy</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- View & Edit -->
+                <div class="tab-content" id="tab-customer-view">
+                    <div class="table-toolbar">
+                        <input type="text" id="cust-search" placeholder="Search customers...">
+                    </div>
+                    <div class="table-wrap">
+                        <table id="table-customers">
+                            <thead><tr><th>Company</th><th>Domain</th><th>Phone</th><th>Members</th><th></th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== SUPPLIER ==================== -->
+            <section class="section-panel" id="section-supplier">
+                <div class="tab-bar">
+                    <a class="tab active" data-tab="supplier-create">Create</a>
+                    <a class="tab" data-tab="supplier-view">View &amp; Edit</a>
+                </div>
+
+                <div class="tab-content active" id="tab-supplier-create">
+                    <div class="sub-tab-bar">
+                        <a class="sub-tab active" data-subtab="sup-company">Company</a>
+                        <a class="sub-tab" data-subtab="sup-member">Member</a>
+                    </div>
+
+                    <div class="sub-tab-content active" id="subtab-sup-company">
+                        <form id="form-supplier-create" class="form-panel" autocomplete="off">
+                            <div class="hp-field"><input type="text" name="website" tabindex="-1" autocomplete="off"></div>
+                            <label for="sup-company">Company Name</label>
+                            <input type="text" id="sup-company" required>
+                            <label for="sup-domain">Email Domain</label>
+                            <input type="text" id="sup-domain" placeholder="example.com" required>
+                            <label for="sup-address">Address</label>
+                            <textarea id="sup-address" rows="2"></textarea>
+                            <label for="sup-phone">Phone</label>
+                            <input type="text" id="sup-phone">
+                            <div class="form-actions">
+                                <button type="submit">Save</button>
+                                <button type="reset" class="btn-outline">Cancel</button>
+                                <button type="button" class="btn-outline btn-dummy" data-form="supplier-create">Dummy</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div class="sub-tab-content" id="subtab-sup-member">
+                        <form id="form-supplier-member" class="form-panel" autocomplete="off">
+                            <div class="hp-field"><input type="text" name="website" tabindex="-1" autocomplete="off"></div>
+                            <label for="sup-member-company">Company</label>
+                            <select id="sup-member-company"></select>
+                            <label for="sup-member-name">Member Name</label>
+                            <input type="text" id="sup-member-name" required>
+                            <label for="sup-member-email">Email</label>
+                            <input type="email" id="sup-member-email" required>
+                            <label for="sup-member-role">Role</label>
+                            <input type="text" id="sup-member-role">
+                            <label for="sup-member-phone">Phone</label>
+                            <input type="text" id="sup-member-phone">
+                            <div class="form-actions">
+                                <button type="submit">Save</button>
+                                <button type="reset" class="btn-outline">Cancel</button>
+                                <button type="button" class="btn-outline btn-dummy" data-form="supplier-member">Dummy</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-supplier-view">
+                    <div class="table-toolbar">
+                        <input type="text" id="sup-search" placeholder="Search suppliers...">
+                    </div>
+                    <div class="table-wrap">
+                        <table id="table-suppliers">
+                            <thead><tr><th>Company</th><th>Domain</th><th>Phone</th><th>Members</th><th></th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== TEMPLATE ==================== -->
+            <section class="section-panel" id="section-template">
+                <div class="tab-bar">
+                    <a class="tab active" data-tab="template-create">Create</a>
+                    <a class="tab" data-tab="template-view">View All</a>
+                </div>
+
+                <!-- Create: Template → Partition → Component sub-tabs -->
+                <div class="tab-content active" id="tab-template-create">
+                    <div class="sub-tab-bar">
+                        <a class="sub-tab active" data-subtab="tpl-setup">Template</a>
+                        <a class="sub-tab" data-subtab="tpl-partition">Partition</a>
+                        <a class="sub-tab" data-subtab="tpl-component">Component</a>
+                    </div>
+
+                    <!-- Sub-tab: Template setup -->
+                    <div class="sub-tab-content active" id="subtab-tpl-setup">
+                        <div class="template-layout">
+                            <div class="template-form">
+                                <form id="form-template-create" autocomplete="off">
+                                    <div class="hp-field"><input type="text" name="website" tabindex="-1" autocomplete="off"></div>
+                                    <label for="tpl-customer">Customer</label>
+                                    <select id="tpl-customer"></select>
+                                    <label for="tpl-name">Template Name</label>
+                                    <input type="text" id="tpl-name" required>
+                                    <fieldset>
+                                        <legend>Size &amp; Orientation</legend>
+                                        <div class="input-row">
+                                            <div><label for="tpl-width">Width (mm)</label><input type="number" id="tpl-width" min="5" max="500" step="0.1" value="50"></div>
+                                            <div><label for="tpl-height">Height (mm)</label><input type="number" id="tpl-height" min="5" max="500" step="0.1" value="80"></div>
+                                        </div>
+                                        <label for="tpl-orientation">Orientation</label>
+                                        <select id="tpl-orientation">
+                                            <option value="vertical">Vertical</option>
+                                            <option value="horizontal">Horizontal</option>
+                                        </select>
+                                    </fieldset>
+                                    <fieldset>
+                                        <legend>Padding (mm)</legend>
+                                        <div class="input-row">
+                                            <div><label for="tpl-pad-top">Top</label><input type="number" id="tpl-pad-top" min="0" step="0.1" value="3"></div>
+                                            <div><label for="tpl-pad-bottom">Bottom</label><input type="number" id="tpl-pad-bottom" min="0" step="0.1" value="3"></div>
+                                        </div>
+                                        <div class="input-row">
+                                            <div><label for="tpl-pad-left">Left</label><input type="number" id="tpl-pad-left" min="0" step="0.1" value="3"></div>
+                                            <div><label for="tpl-pad-right">Right</label><input type="number" id="tpl-pad-right" min="0" step="0.1" value="3"></div>
+                                        </div>
+                                    </fieldset>
+                                    <fieldset>
+                                        <legend>Sewing (mm from edge)</legend>
+                                        <div class="input-row">
+                                            <div><label for="tpl-sew-position">Position</label>
+                                                <select id="tpl-sew-position">
+                                                    <option value="none">None</option>
+                                                    <option value="top">Top</option>
+                                                    <option value="bottom">Bottom</option>
+                                                    <option value="left">Left</option>
+                                                    <option value="right">Right</option>
+                                                </select>
+                                            </div>
+                                            <div><label for="tpl-sew-distance">Distance</label><input type="number" id="tpl-sew-distance" min="0" step="0.1" value="0"></div>
+                                        </div>
+                                        <label for="tpl-sew-padding">Sewing Padding (mm)</label>
+                                        <input type="number" id="tpl-sew-padding" min="0" step="0.1" value="0">
+                                    </fieldset>
+                                    <fieldset>
+                                        <legend>Folding</legend>
+                                        <div class="input-row">
+                                            <div><label for="tpl-fold">Fold Type</label>
+                                                <select id="tpl-fold">
+                                                    <option value="mid">Mid Fold</option>
+                                                    <option value="none">No Fold</option>
+                                                </select>
+                                            </div>
+                                            <div><label for="tpl-fold-padding">Fold Padding (mm)</label><input type="number" id="tpl-fold-padding" min="0" step="0.1" value="0"></div>
+                                        </div>
+                                    </fieldset>
+                                    <div class="form-actions">
+                                        <button type="button" id="btn-tpl-preview">Preview</button>
+                                        <button type="submit">Save</button>
+                                        <button type="reset" class="btn-outline">Cancel</button>
+                                        <button type="button" class="btn-outline btn-dummy" data-form="template-create">Dummy</button>
+                                    </div>
+                                </form>
+                            </div>
+                            <div class="template-preview" id="template-preview">
+                                <div class="preview-hint">Click "Preview" to see label layout.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sub-tab: Partition -->
+                    <div class="sub-tab-content" id="subtab-tpl-partition">
+                        <div class="template-layout">
+                            <div class="template-form" style="width:200px">
+                                <label for="partition-tpl-select">Template</label>
+                                <select id="partition-tpl-select"></select>
+                                <p class="hint">Double-click a section to split it.</p>
+                                <div id="partition-list"></div>
+                            </div>
+                            <div class="template-preview" id="partition-preview">
+                                <div class="preview-hint">Select a template.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sub-tab: Component -->
+                    <div class="sub-tab-content" id="subtab-tpl-component">
+                        <div class="template-layout">
+                            <div class="template-form" style="width:200px">
+                                <label for="comp-tpl-select">Template</label>
+                                <select id="comp-tpl-select"></select>
+                                <h3 class="section-title">Components</h3>
+                                <div class="component-item" draggable="true" data-type="text">Text</div>
+                                <div class="component-item" draggable="true" data-type="paragraph">Paragraph</div>
+                                <div class="component-item" draggable="true" data-type="barcode">Barcode</div>
+                                <div class="component-item" draggable="true" data-type="qrcode">QR Code</div>
+                                <h3 class="section-title">Placed</h3>
+                                <div id="comp-placed-list" class="component-list"></div>
+                            </div>
+                            <div class="template-preview" id="component-preview">
+                                <div class="preview-hint">Select a template.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- View All -->
+                <div class="tab-content" id="tab-template-view">
+                    <div class="table-toolbar">
+                        <input type="text" id="tpl-search" placeholder="Search templates...">
+                    </div>
+                    <div class="table-wrap">
+                        <table id="table-templates">
+                            <thead><tr><th>Name</th><th>Customer</th><th>Size</th><th>Orientation</th><th>Fold</th><th>Partitions</th><th></th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== PROJECT ==================== -->
+            <section class="section-panel" id="section-project">
+                <div class="tab-bar"><a class="tab active" data-tab="project-main">Project</a></div>
+                <div class="tab-content active" id="tab-project-main"><p class="hint">Project module — details to follow.</p></div>
+            </section>
+
+            <!-- ==================== ORDER ==================== -->
+            <section class="section-panel" id="section-order">
+                <div class="tab-bar"><a class="tab active" data-tab="order-main">Order</a></div>
+                <div class="tab-content active" id="tab-order-main"><p class="hint">Order module — details to follow.</p></div>
+            </section>
+
+            <!-- ==================== STATUS ==================== -->
+            <section class="section-panel" id="section-status">
+                <div class="tab-bar"><a class="tab active" data-tab="status-main">Order Status</a></div>
+                <div class="tab-content active" id="tab-status-main"><p class="hint">Status module — details to follow.</p></div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Split Partition Modal -->
+    <div class="modal-overlay" id="modal-split">
+        <div class="modal">
+            <h2>Split Partition</h2>
+            <div class="error-msg" id="split-error"></div>
+            <div class="hp-field"><input type="text" name="company" tabindex="-1" autocomplete="off" id="hp-split"></div>
+            <div class="input-row">
+                <div><label for="split-direction">Direction</label>
+                    <select id="split-direction">
+                        <option value="vertical">Vertical</option>
+                        <option value="horizontal">Horizontal</option>
+                    </select>
+                </div>
+                <div><label for="split-offset">Offset (mm)</label><input type="number" id="split-offset" min="0.1" step="0.1" value="10"></div>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-split-cancel" class="btn-outline">Cancel</button>
+                <button id="btn-split-ok">Split</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,621 @@
+/* Label Management System — Minimal Black & White */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: "Segoe UI", Arial, sans-serif;
+    background: #fff;
+    color: #000;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+/* ===== Layout ===== */
+.app {
+    display: flex;
+    height: 100vh;
+}
+
+/* ===== Left Navigation ===== */
+.nav-sidebar {
+    width: 200px;
+    border-right: 1px solid #000;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow-y: auto;
+    background: #fafafa;
+}
+
+.nav-header {
+    padding: 14px 16px;
+    font-size: 15px;
+    font-weight: 700;
+    border-bottom: 1px solid #000;
+    letter-spacing: 0.5px;
+}
+
+.nav-group {
+    border-bottom: 1px solid #ddd;
+}
+
+.nav-group-title {
+    padding: 10px 16px 4px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #666;
+    cursor: pointer;
+    user-select: none;
+}
+
+.nav-group-title:hover {
+    color: #000;
+}
+
+.nav-group .nav-item {
+    display: block;
+    padding: 6px 16px 6px 28px;
+    font-size: 13px;
+    color: #333;
+    text-decoration: none;
+    cursor: pointer;
+    user-select: none;
+}
+
+.nav-group .nav-item:hover {
+    background: #eee;
+}
+
+.nav-group .nav-item.active {
+    background: #000;
+    color: #fff;
+}
+
+/* Collapsed group hides items */
+.nav-group.collapsed .nav-item {
+    display: none;
+}
+
+/* ===== Content Area ===== */
+.content-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+    background: #fff;
+}
+
+.section-panel {
+    display: none;
+    height: 100%;
+}
+
+.section-panel.active {
+    display: flex;
+    flex-direction: column;
+}
+
+/* ===== Tabs ===== */
+.tab-bar {
+    display: flex;
+    border-bottom: 2px solid #000;
+    flex-shrink: 0;
+}
+
+.tab {
+    padding: 10px 20px;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    color: #666;
+    text-decoration: none;
+}
+
+.tab:hover { color: #000; }
+
+.tab.active {
+    color: #000;
+    font-weight: 600;
+    border-bottom-color: #000;
+}
+
+.tab-content {
+    display: none;
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 24px;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* ===== Sub-tabs ===== */
+.sub-tab-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+}
+
+.sub-tab {
+    padding: 6px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid #ccc;
+    background: #f5f5f5;
+    color: #666;
+    text-decoration: none;
+}
+
+.sub-tab:hover { background: #eee; }
+
+.sub-tab.active {
+    background: #000;
+    color: #fff;
+    border-color: #000;
+}
+
+.sub-tab-content {
+    display: none;
+}
+
+.sub-tab-content.active {
+    display: block;
+}
+
+/* ===== Expandable member rows ===== */
+.member-toggle {
+    cursor: pointer;
+    color: #000;
+    text-decoration: underline;
+    font-size: 12px;
+}
+
+.member-row td {
+    padding: 4px 10px 4px 30px;
+    font-size: 12px;
+    background: #f9f9f9;
+    border-bottom: 1px solid #eee;
+}
+
+.member-row.hidden {
+    display: none;
+}
+
+/* ===== Forms ===== */
+.form-panel {
+    max-width: 480px;
+}
+
+label {
+    display: block;
+    font-size: 12px;
+    margin-bottom: 4px;
+    margin-top: 8px;
+}
+
+label:first-child {
+    margin-top: 0;
+}
+
+input[type="number"],
+input[type="text"],
+input[type="email"],
+select,
+textarea {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #000;
+    background: #fff;
+    font-size: 13px;
+    font-family: inherit;
+    margin-bottom: 4px;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: 2px solid #000;
+    outline-offset: -1px;
+}
+
+textarea {
+    resize: vertical;
+    min-height: 50px;
+}
+
+.input-row {
+    display: flex;
+    gap: 8px;
+}
+
+.input-row > div {
+    flex: 1;
+}
+
+fieldset {
+    border: 1px solid #ccc;
+    padding: 10px 12px;
+    margin: 12px 0;
+}
+
+fieldset legend {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 0 4px;
+}
+
+/* ===== Buttons ===== */
+button {
+    display: inline-block;
+    padding: 8px 16px;
+    border: 1px solid #000;
+    background: #000;
+    color: #fff;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #333;
+}
+
+button:disabled {
+    background: #999;
+    border-color: #999;
+    cursor: not-allowed;
+}
+
+button.btn-outline {
+    background: #fff;
+    color: #000;
+}
+
+button.btn-outline:hover {
+    background: #eee;
+}
+
+.form-actions {
+    margin-top: 16px;
+    display: flex;
+    gap: 8px;
+}
+
+/* ===== Tables ===== */
+.table-toolbar {
+    margin-bottom: 12px;
+}
+
+.table-toolbar input {
+    max-width: 300px;
+}
+
+.table-wrap {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #000;
+}
+
+tbody tr:hover {
+    background: #f5f5f5;
+}
+
+/* ===== Template Layout (form + preview side by side) ===== */
+.template-layout {
+    display: flex;
+    gap: 20px;
+    height: calc(100vh - 100px);
+}
+
+.template-form {
+    width: 300px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    padding-right: 12px;
+}
+
+.template-preview {
+    flex: 1;
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: auto;
+}
+
+.preview-hint {
+    color: #999;
+    font-size: 13px;
+}
+
+/* ===== Label Canvas ===== */
+.label-canvas {
+    background: #fff;
+    border: 2px solid #000;
+    position: relative;
+    overflow: hidden;
+}
+
+.label-canvas .dotted-rect {
+    position: absolute;
+    border: 1px dashed #999;
+    pointer-events: none;
+}
+
+.label-canvas .dotted-rect.printing-area {
+    border-color: #000;
+    border-width: 1px;
+    border-style: dashed;
+}
+
+.label-canvas .sewing-line {
+    position: absolute;
+    border: 0;
+    pointer-events: none;
+}
+
+.label-canvas .sewing-line.horizontal {
+    border-top: 1px dashed #666;
+    height: 0;
+    left: 0;
+    right: 0;
+}
+
+.label-canvas .sewing-line.vertical {
+    border-left: 1px dashed #666;
+    width: 0;
+    top: 0;
+    bottom: 0;
+}
+
+.label-canvas .fold-line {
+    position: absolute;
+    pointer-events: none;
+}
+
+.label-canvas .fold-line.horizontal {
+    border-top: 2px dashed #aaa;
+    height: 0;
+    left: 0;
+    right: 0;
+}
+
+.label-canvas .fold-line.vertical {
+    border-left: 2px dashed #aaa;
+    width: 0;
+    top: 0;
+    bottom: 0;
+}
+
+.label-canvas .canvas-label {
+    position: absolute;
+    font-size: 9px;
+    color: #999;
+    pointer-events: none;
+}
+
+/* Partition areas */
+.partition-area {
+    position: absolute;
+    border: 1px solid #ccc;
+    cursor: pointer;
+}
+
+.partition-area:hover {
+    background: rgba(0,0,0,0.03);
+}
+
+.partition-area.selected {
+    border: 2px solid #000;
+}
+
+.partition-divider {
+    position: absolute;
+    pointer-events: none;
+}
+
+.partition-divider.horizontal {
+    border-top: 1px solid #000;
+    height: 0;
+}
+
+.partition-divider.vertical {
+    border-left: 1px solid #000;
+    width: 0;
+}
+
+/* ===== Canvas Components ===== */
+.canvas-component {
+    position: absolute;
+    border: 1px dashed #999;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.canvas-component:hover {
+    border-color: #000;
+}
+
+.canvas-component.selected {
+    border: 2px solid #000;
+}
+
+.canvas-component .comp-content {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.canvas-component .comp-content img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* ===== Draggable Components ===== */
+.component-item {
+    padding: 8px 10px;
+    border: 1px solid #000;
+    margin-bottom: 6px;
+    cursor: grab;
+    font-size: 13px;
+    text-align: center;
+    user-select: none;
+    background: #fff;
+}
+
+.component-item:hover {
+    background: #f0f0f0;
+}
+
+.component-item:active {
+    cursor: grabbing;
+}
+
+.component-list {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.component-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 6px;
+    border: 1px solid #ddd;
+    margin-bottom: 3px;
+    font-size: 11px;
+}
+
+.component-list-item .delete-btn {
+    padding: 1px 6px;
+    font-size: 11px;
+    margin: 0;
+}
+
+.section-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 12px 0 6px;
+}
+
+/* ===== Modal ===== */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal {
+    background: #fff;
+    border: 2px solid #000;
+    padding: 24px;
+    width: 400px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.modal h2 {
+    font-size: 16px;
+    margin-bottom: 16px;
+    border: none;
+    padding: 0;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.error-msg {
+    color: #000;
+    background: #f0f0f0;
+    border: 1px solid #000;
+    padding: 8px;
+    font-size: 12px;
+    margin-bottom: 8px;
+    display: none;
+}
+
+.error-msg.visible {
+    display: block;
+}
+
+/* ===== Misc ===== */
+.hint {
+    font-size: 12px;
+    color: #888;
+    margin: 4px 0 8px;
+}
+
+.hp-field {
+    margin-bottom: 8px;
+}
+
+.scale-indicator {
+    position: absolute;
+    bottom: 4px;
+    right: 6px;
+    font-size: 10px;
+    color: #aaa;
+    pointer-events: none;
+}
+
+/* Two-piece preview (after save) */
+.two-piece-wrap {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.piece-label {
+    font-size: 10px;
+    text-align: center;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.label-canvas.drop-hover {
+    border-color: #666;
+    border-style: dashed;
+}
