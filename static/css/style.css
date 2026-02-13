@@ -10,8 +10,9 @@ body {
     font-family: "Segoe UI", Arial, sans-serif;
     background: #fff;
     color: #000;
-    font-size: 14px;
-    line-height: 1.4;
+    font-size: 13px;
+    line-height: 1.3;
+    overflow: hidden;
 }
 
 /* ===== Layout ===== */
@@ -22,21 +23,41 @@ body {
 
 /* ===== Left Navigation ===== */
 .nav-sidebar {
-    width: 200px;
+    width: 160px;
     border-right: 1px solid #000;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
-    overflow-y: auto;
+    overflow: hidden;
     background: #fafafa;
 }
 
 .nav-header {
-    padding: 14px 16px;
-    font-size: 15px;
+    padding: 10px 12px;
+    font-size: 14px;
     font-weight: 700;
     border-bottom: 1px solid #000;
     letter-spacing: 0.5px;
+}
+
+.nav-item {
+    display: block;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: #333;
+    text-decoration: none;
+    cursor: pointer;
+    user-select: none;
+    border-bottom: 1px solid #eee;
+}
+
+.nav-item:hover {
+    background: #eee;
+}
+
+.nav-item.active {
+    background: #000;
+    color: #fff;
 }
 
 .nav-group {
@@ -84,14 +105,51 @@ body {
 /* ===== Content Area ===== */
 .content-area {
     flex: 1;
-    overflow-y: auto;
+    overflow: hidden;
     padding: 0;
     background: #fff;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ===== Workspace Tabs ===== */
+.workspace-tabs {
+    display: flex;
+    border-bottom: 2px solid #000;
+    flex-shrink: 0;
+    background: #fafafa;
+    min-height: 0;
+}
+
+.workspace-tabs:empty {
+    display: none;
+}
+
+.workspace-tab {
+    padding: 6px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    user-select: none;
+    border-right: 1px solid #ddd;
+    color: #666;
+    white-space: nowrap;
+}
+
+.workspace-tab:hover {
+    background: #eee;
+}
+
+.workspace-tab.active {
+    background: #fff;
+    color: #000;
+    font-weight: 600;
 }
 
 .section-panel {
     display: none;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .section-panel.active {
@@ -107,8 +165,8 @@ body {
 }
 
 .tab {
-    padding: 10px 20px;
-    font-size: 13px;
+    padding: 6px 16px;
+    font-size: 12px;
     cursor: pointer;
     user-select: none;
     border-bottom: 2px solid transparent;
@@ -128,24 +186,26 @@ body {
 .tab-content {
     display: none;
     flex: 1;
-    overflow-y: auto;
-    padding: 16px 24px;
+    overflow: hidden;
+    padding: 8px 16px;
 }
 
 .tab-content.active {
-    display: block;
+    display: flex;
+    flex-direction: column;
 }
 
 /* ===== Sub-tabs ===== */
 .sub-tab-bar {
     display: flex;
     gap: 4px;
-    margin-bottom: 16px;
+    margin-bottom: 8px;
+    flex-shrink: 0;
 }
 
 .sub-tab {
-    padding: 6px 14px;
-    font-size: 12px;
+    padding: 4px 12px;
+    font-size: 11px;
     cursor: pointer;
     user-select: none;
     border: 1px solid #ccc;
@@ -167,7 +227,11 @@ body {
 }
 
 .sub-tab-content.active {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 }
 
 /* ===== Expandable member rows ===== */
@@ -196,9 +260,9 @@ body {
 
 label {
     display: block;
-    font-size: 12px;
-    margin-bottom: 4px;
-    margin-top: 8px;
+    font-size: 11px;
+    margin-bottom: 2px;
+    margin-top: 4px;
 }
 
 label:first-child {
@@ -211,12 +275,12 @@ input[type="email"],
 select,
 textarea {
     width: 100%;
-    padding: 6px 8px;
+    padding: 4px 6px;
     border: 1px solid #000;
     background: #fff;
-    font-size: 13px;
+    font-size: 12px;
     font-family: inherit;
-    margin-bottom: 4px;
+    margin-bottom: 2px;
 }
 
 input:focus,
@@ -228,12 +292,12 @@ textarea:focus {
 
 textarea {
     resize: vertical;
-    min-height: 50px;
+    min-height: 36px;
 }
 
 .input-row {
     display: flex;
-    gap: 8px;
+    gap: 6px;
 }
 
 .input-row > div {
@@ -242,12 +306,12 @@ textarea {
 
 fieldset {
     border: 1px solid #ccc;
-    padding: 10px 12px;
-    margin: 12px 0;
+    padding: 6px 8px;
+    margin: 6px 0;
 }
 
 fieldset legend {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     padding: 0 4px;
 }
@@ -255,11 +319,11 @@ fieldset legend {
 /* ===== Buttons ===== */
 button {
     display: inline-block;
-    padding: 8px 16px;
+    padding: 5px 14px;
     border: 1px solid #000;
     background: #000;
     color: #fff;
-    font-size: 13px;
+    font-size: 12px;
     font-family: inherit;
     cursor: pointer;
 }
@@ -284,9 +348,9 @@ button.btn-outline:hover {
 }
 
 .form-actions {
-    margin-top: 16px;
+    margin-top: 8px;
     display: flex;
-    gap: 8px;
+    gap: 6px;
 }
 
 /* ===== Tables ===== */
@@ -328,15 +392,17 @@ tbody tr:hover {
 /* ===== Template Layout (form + preview side by side) ===== */
 .template-layout {
     display: flex;
-    gap: 20px;
-    height: calc(100vh - 100px);
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .template-form {
-    width: 300px;
+    width: 280px;
     flex-shrink: 0;
     overflow-y: auto;
-    padding-right: 12px;
+    padding-right: 8px;
 }
 
 .template-preview {
@@ -589,7 +655,10 @@ tbody tr:hover {
 }
 
 .hp-field {
-    margin-bottom: 8px;
+    position: absolute;
+    left: -9999px;
+    height: 0;
+    overflow: hidden;
 }
 
 .scale-indicator {

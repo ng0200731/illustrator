@@ -20,6 +20,12 @@
     /* ===== Section / Tab / Sub-tab Navigation ===== */
     var navItems = document.querySelectorAll(".nav-item");
     var sections = document.querySelectorAll(".section-panel");
+    var workspaceBar = document.getElementById("workspace-tabs");
+
+    var sectionLabels = {
+        customer: "Customer", supplier: "Supplier", template: "Template",
+        project: "Project", order: "Order", status: "Status"
+    };
 
     function showSection(sectionId) {
         sections.forEach(function (s) { s.classList.remove("active"); });
@@ -28,6 +34,22 @@
         if (sec) sec.classList.add("active");
         var nav = document.querySelector('.nav-item[data-section="' + sectionId + '"]');
         if (nav) nav.classList.add("active");
+
+        // Add workspace tab if not already open
+        var existing = workspaceBar.querySelector('.workspace-tab[data-section="' + sectionId + '"]');
+        if (!existing) {
+            var wt = document.createElement("a");
+            wt.className = "workspace-tab";
+            wt.dataset.section = sectionId;
+            wt.textContent = sectionLabels[sectionId] || sectionId;
+            wt.addEventListener("click", function () { showSection(sectionId); });
+            workspaceBar.appendChild(wt);
+            existing = wt;
+        }
+        // Activate this workspace tab
+        workspaceBar.querySelectorAll(".workspace-tab").forEach(function (t) { t.classList.remove("active"); });
+        existing.classList.add("active");
+
         // Refresh data when switching sections
         if (sectionId === "customer") {
             refreshCustomerSelects();
