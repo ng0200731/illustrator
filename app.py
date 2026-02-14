@@ -56,8 +56,11 @@ def _template_to_dict(row, partitions):
 
 # Auto-init DB on first run
 if not os.path.exists(DB_PATH):
-    from tools.init_db import init_db
-    init_db()
+    try:
+        from tools.init_db import init_db
+        init_db()
+    except Exception as e:
+        print(f"DB init failed: {e}")
 
 
 @app.route("/")
