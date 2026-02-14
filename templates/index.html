@@ -176,8 +176,8 @@
                 <div class="tab-content active" id="tab-template-create">
                     <div class="sub-tab-bar">
                         <a class="sub-tab active" data-subtab="tpl-setup">Template</a>
-                        <a class="sub-tab" data-subtab="tpl-partition">Partition</a>
-                        <a class="sub-tab" data-subtab="tpl-component">Component</a>
+                        <a class="sub-tab disabled" data-subtab="tpl-partition">Partition</a>
+                        <a class="sub-tab disabled" data-subtab="tpl-component">Component</a>
                     </div>
 
                     <!-- Sub-tab: Template setup -->
@@ -193,8 +193,9 @@
                                     <fieldset>
                                         <legend>Size &amp; Orientation</legend>
                                         <div class="input-row">
-                                            <div><label for="tpl-width">Width (mm)</label><input type="number" id="tpl-width" min="0" max="500" step="0.1"></div>
-                                            <div><label for="tpl-height">Height (mm)</label><input type="number" id="tpl-height" min="0" max="500" step="0.1"></div>
+                                            <div><label for="tpl-width">Width (mm)</label><input type="number" id="tpl-width" min="0" max="500" step="1"></div>
+                                            <button type="button" class="btn-swap" id="btn-swap-wh" title="Swap width and height"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M1 4l3-3v2h5v2H4v2L1 4zm14 8l-3 3v-2H7v-2h5V9l3 3z" fill="currentColor"/></svg></button>
+                                            <div><label for="tpl-height">Height (mm)</label><input type="number" id="tpl-height" min="0" max="500" step="1"></div>
                                         </div>
                                         <label>Orientation</label>
                                         <input type="hidden" id="tpl-orientation" value="vertical">
@@ -231,9 +232,8 @@
                                                     </select>
                                                 </div>
                                                 <div><label for="tpl-sew-distance">Distance</label><input type="number" id="tpl-sew-distance" min="0" step="1" value="0"></div>
+                                                <div><label for="tpl-sew-padding">Padding (mm)</label><input type="number" id="tpl-sew-padding" min="0" step="1" value="0"></div>
                                             </div>
-                                            <label for="tpl-sew-padding">Sewing Padding (mm)</label>
-                                            <input type="number" id="tpl-sew-padding" min="0" step="1" value="0">
                                         </div>
                                         <div class="line-type-fields hidden" id="fields-fold">
                                             <label for="tpl-fold-padding">Fold Padding (mm)</label>
@@ -260,8 +260,8 @@
                     <div class="sub-tab-content" id="subtab-tpl-partition">
                         <div class="template-layout">
                             <div class="template-form" style="width:200px">
-                                <label for="partition-tpl-select">Template</label>
-                                <select id="partition-tpl-select"></select>
+                                <label>Template</label>
+                                <span id="partition-tpl-name" class="tpl-name-display"></span>
                                 <p class="hint">Double-click a section to split it.</p>
                                 <div id="partition-list"></div>
                             </div>

@@ -242,6 +242,45 @@ def api_delete_template(tid):
     return jsonify({"ok": True})
 
 
+@app.route("/api/templates/<int:tid>", methods=["PUT"])
+def api_update_template(tid):
+    d = request.get_json()
+    pad = d.get("padding", {})
+    sew = d.get("sewing", {})
+    fold = d.get("folding", {})
+    pa = d.get("printingArea", {})
+    db = get_db()
+    db.execute(
+        """UPDATE templates SET
+           customer_id=?, name=?, width=?, height=?, orientation=?,
+           pad_top=?, pad_bottom=?, pad_left=?, pad_right=?,
+           sew_position=?, sew_distance=?, sew_padding=?,
+           fold_type=?, fold_padding=?,
+           print_x=?, print_y=?, print_w=?, print_h=?
+           WHERE id=?""",
+        (d["customerId"], d["name"], d["width"], d["height"], d["orientation"],
+         pad.get("top", 0), pad.get("bottom", 0), pad.get("left", 0), pad.get("right", 0),
+         sew.get("position", "none"), sew.get("distance", 0), sew.get("padding", 0),
+         fold.get("type", "none"), fold.get("padding", 0),
+         pa.get("x", 0), pa.get("y", 0), pa.get("w", 0), pa.get("h", 0),
+         tid)
+    )
+    db.execute("DELETE FROM partitions WHERE template_id=?", (tid,))
+    parts_out = []
+    for p in d.get("partitions", []):
+        pcur = db.execute(
+            "INSERT INTO partitions (template_id, label, x, y, w, h) VALUES (?,?,?,?,?,?)",
+            (tid, p["label"], p["x"], p["y"], p["w"], p["h"])
+        )
+        parts_out.append({"id": pcur.lastrowid, "template_id": tid,
+                          "label": p["label"], "x": p["x"], "y": p["y"],
+                          "w": p["w"], "h": p["h"]})
+    db.commit()
+    row = db.execute("SELECT * FROM templates WHERE id=?", (tid,)).fetchone()
+    db.close()
+    return jsonify(_template_to_dict(row, parts_out))
+
+
 @app.route("/api/templates/<int:tid>/partitions", methods=["PUT"])
 def api_update_partitions(tid):
     d = request.get_json()

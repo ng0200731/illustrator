@@ -215,6 +215,13 @@ body {
 }
 
 .sub-tab:hover { background: #eee; }
+.sub-tab.disabled { opacity: 0.3; pointer-events: none; }
+
+.tpl-name-display {
+    display: block;
+    font-weight: bold;
+    padding: 4px 0;
+}
 
 .sub-tab.active {
     background: #000;
@@ -302,6 +309,22 @@ textarea {
 
 .input-row > div {
     flex: 1;
+}
+
+.btn-swap {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 2px;
+    align-self: flex-end;
+    margin-bottom: 2px;
+    line-height: 1;
+    flex-shrink: 0;
+    color: #999;
+}
+.btn-swap:hover {
+    background: #000;
+    color: #fff;
 }
 
 fieldset {

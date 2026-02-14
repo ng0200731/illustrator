@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(py -c \"from app import app; print\\(''App OK''\\)\")"
+      "Bash(py -c \"from app import app; print\\(''App OK''\\)\")",
+      "mcp__memory__read_graph"
     ]
   }
 }

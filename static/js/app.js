@@ -69,7 +69,6 @@
         }
         if (sectionId === "template") {
             refreshCustomerSelects();
-            refreshTemplateSelects("partition-tpl-select");
             refreshTemplateSelects("comp-tpl-select");
         }
     }
@@ -100,6 +99,7 @@
     // Sub-tab switching
     document.querySelectorAll(".sub-tab-bar .sub-tab").forEach(function (st) {
         st.addEventListener("click", function () {
+            if (st.classList.contains("disabled")) return;
             var bar = st.parentElement;
             bar.querySelectorAll(".sub-tab").forEach(function (s) { s.classList.remove("active"); });
             st.classList.add("active");
@@ -110,8 +110,8 @@
             // Refresh on sub-tab switch
             if (st.dataset.subtab === "cust-member") refreshCustomerSelects();
             if (st.dataset.subtab === "sup-member") refreshSupplierSelects();
-            if (st.dataset.subtab === "tpl-partition") refreshTemplateSelects("partition-tpl-select");
             if (st.dataset.subtab === "tpl-component") refreshTemplateSelects("comp-tpl-select");
+            if (st.dataset.subtab === "tpl-setup") renderTemplatePreview();
         });
     });
 
@@ -393,6 +393,15 @@
             }
             renderTemplatePreview();
         });
+    });
+    // Swap width ↔ height
+    document.getElementById("btn-swap-wh").addEventListener("click", function () {
+        var wInput = document.getElementById("tpl-width");
+        var hInput = document.getElementById("tpl-height");
+        var tmp = wInput.value;
+        wInput.value = hInput.value;
+        hInput.value = tmp;
+        renderTemplatePreview();
     });
     // Line type toggle: Sewing vs Mid Fold (mutually exclusive)
     document.querySelectorAll(".line-type-btn").forEach(function (btn) {
@@ -774,29 +783,30 @@
 
         // Create initial partitions based on fold
         if (tpl.folding.type === "mid") {
+            var fp = tpl.folding.padding || 0;
             if (tpl.orientation === "vertical") {
                 var halfH = tpl.height / 2;
                 tpl.partitions.push({
                     label: "Top",
                     x: tpl.printingArea.x, y: tpl.printingArea.y,
-                    w: tpl.printingArea.w, h: Math.min(halfH - tpl.printingArea.y, tpl.printingArea.h)
+                    w: tpl.printingArea.w, h: halfH - fp - tpl.printingArea.y
                 });
                 tpl.partitions.push({
                     label: "Bottom",
-                    x: tpl.printingArea.x, y: halfH,
-                    w: tpl.printingArea.w, h: tpl.height - halfH - (tpl.height - tpl.printingArea.y - tpl.printingArea.h)
+                    x: tpl.printingArea.x, y: halfH + fp,
+                    w: tpl.printingArea.w, h: (tpl.printingArea.y + tpl.printingArea.h) - (halfH + fp)
                 });
             } else {
                 var halfW = tpl.width / 2;
                 tpl.partitions.push({
                     label: "Left",
                     x: tpl.printingArea.x, y: tpl.printingArea.y,
-                    w: Math.min(halfW - tpl.printingArea.x, tpl.printingArea.w), h: tpl.printingArea.h
+                    w: halfW - fp - tpl.printingArea.x, h: tpl.printingArea.h
                 });
                 tpl.partitions.push({
                     label: "Right",
-                    x: halfW, y: tpl.printingArea.y,
-                    w: tpl.width - halfW - (tpl.width - tpl.printingArea.x - tpl.printingArea.w), h: tpl.printingArea.h
+                    x: halfW + fp, y: tpl.printingArea.y,
+                    w: (tpl.printingArea.x + tpl.printingArea.w) - (halfW + fp), h: tpl.printingArea.h
                 });
             }
         } else {
@@ -807,16 +817,26 @@
             });
         }
 
-        api("POST", "/api/templates", tpl).then(function (saved) {
-            store.templates.push(saved);
+        var isUpdate = !!activePartitionTpl;
+        var method = isUpdate ? "PUT" : "POST";
+        var url = isUpdate ? "/api/templates/" + activePartitionTpl.id : "/api/templates";
+
+        api(method, url, tpl).then(function (saved) {
+            if (isUpdate) {
+                var idx = store.templates.findIndex(function (t) { return t.id === saved.id; });
+                if (idx !== -1) store.templates[idx] = saved;
+            } else {
+                store.templates.push(saved);
+            }
             showTwoPiecePreview(saved);
-            refreshTemplateSelects("partition-tpl-select");
             refreshTemplateSelects("comp-tpl-select");
+            // Enable Partition & Component sub-tabs
+            var bar = document.querySelector('#tab-template-create .sub-tab-bar');
+            bar.querySelectorAll('.sub-tab.disabled').forEach(function (s) { s.classList.remove('disabled'); });
             switchToSubTab("tab-template-create", "tpl-partition");
-            document.getElementById("partition-tpl-select").value = saved.id;
+            document.getElementById("partition-tpl-name").textContent = saved.name;
             activePartitionTpl = saved;
-            renderPartitionCanvas();
-            alert("Template saved. Switching to Partition tab.");
+            requestAnimationFrame(function () { renderPartitionCanvas(); });
         });
     });
 
@@ -876,12 +896,6 @@
             sel.appendChild(opt);
         });
     }
-
-    document.getElementById("partition-tpl-select").addEventListener("change", function () {
-        var id = parseInt(this.value);
-        activePartitionTpl = store.templates.find(function (t) { return t.id === id; }) || null;
-        renderPartitionCanvas();
-    });
 
     function renderPartitionCanvas() {
         var preview = document.getElementById("partition-preview");
