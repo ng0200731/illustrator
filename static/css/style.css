@@ -316,6 +316,36 @@ fieldset legend {
     padding: 0 4px;
 }
 
+/* ===== Orientation Toggle ===== */
+.orientation-toggle {
+    display: flex;
+    gap: 8px;
+    margin: 2px 0;
+}
+
+.orient-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 10px;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    user-select: none;
+    color: #999;
+    font-size: 10px;
+}
+
+.orient-btn:hover {
+    border-color: #666;
+    color: #666;
+}
+
+.orient-btn.active {
+    border-color: #000;
+    color: #000;
+}
+
 /* ===== Buttons ===== */
 button {
     display: inline-block;
@@ -460,11 +490,19 @@ tbody tr:hover {
     right: 0;
 }
 
+.label-canvas .sewing-line.horizontal.solid {
+    border-top-style: solid;
+}
+
 .label-canvas .sewing-line.vertical {
     border-left: 2px dotted red;
     width: 0;
     top: 0;
     bottom: 0;
+}
+
+.label-canvas .sewing-line.vertical.solid {
+    border-left-style: solid;
 }
 
 .label-canvas .fold-line {

@@ -22,8 +22,14 @@
     var sections = document.querySelectorAll(".section-panel");
     var workspaceBar = document.getElementById("workspace-tabs");
 
+    // Wire up permanent Welcome tab
+    var welcomeTab = workspaceBar.querySelector('.workspace-tab[data-section="welcome"]');
+    if (welcomeTab) {
+        welcomeTab.addEventListener("click", function () { showSection("welcome"); });
+    }
+
     var sectionLabels = {
-        customer: "Customer", supplier: "Supplier", template: "Template",
+        welcome: "Welcome", customer: "Customer", supplier: "Supplier", template: "Template",
         project: "Project", order: "Order", status: "Status"
     };
 
@@ -370,14 +376,23 @@
      "tpl-sew-distance", "tpl-sew-padding", "tpl-fold-padding"].forEach(function (id) {
         document.getElementById(id).addEventListener("input", renderTemplatePreview);
     });
-    document.getElementById("tpl-orientation").addEventListener("change", function () {
-        var wInput = document.getElementById("tpl-width");
-        var hInput = document.getElementById("tpl-height");
-        var tmp = wInput.value;
-        wInput.value = hInput.value;
-        hInput.value = tmp;
-        enforceSewingMin();
-        renderTemplatePreview();
+    document.querySelectorAll(".orient-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            var orient = btn.dataset.orient;
+            var current = document.getElementById("tpl-orientation").value;
+            document.querySelectorAll(".orient-btn").forEach(function (b) { b.classList.remove("active"); });
+            btn.classList.add("active");
+            document.getElementById("tpl-orientation").value = orient;
+            if (orient !== current) {
+                var wInput = document.getElementById("tpl-width");
+                var hInput = document.getElementById("tpl-height");
+                var tmp = wInput.value;
+                wInput.value = hInput.value;
+                hInput.value = tmp;
+                enforceSewingMin();
+            }
+            renderTemplatePreview();
+        });
     });
     document.getElementById("tpl-fold").addEventListener("change", renderTemplatePreview);
 
@@ -504,7 +519,7 @@
         // Sewing line
         if (tpl.sewing.position !== "none" && tpl.sewing.distance > 0) {
             var sewLine = document.createElement("div");
-            sewLine.className = "sewing-line";
+            sewLine.className = "sewing-line solid";
             if (tpl.sewing.position === "top") {
                 sewLine.classList.add("horizontal");
                 sewLine.style.top = (tpl.sewing.distance * tplScale) + "px";
@@ -1004,7 +1019,11 @@
             document.getElementById("tpl-name").value = rand(dummyTplNames);
             document.getElementById("tpl-width").value = rand([30, 40, 50, 60]);
             document.getElementById("tpl-height").value = rand([60, 80, 100, 120]);
-            document.getElementById("tpl-orientation").value = rand(["vertical", "horizontal"]);
+            var orientVal = rand(["vertical", "horizontal"]);
+            document.getElementById("tpl-orientation").value = orientVal;
+            document.querySelectorAll(".orient-btn").forEach(function (b) {
+                b.classList.toggle("active", b.dataset.orient === orientVal);
+            });
             var pad = rand([2, 3, 5]);
             document.getElementById("tpl-pad-top").value = pad;
             document.getElementById("tpl-pad-bottom").value = pad;
@@ -1036,9 +1055,9 @@
         store.customers = results[0];
         store.suppliers = results[1];
         store.templates = results[2];
-        showSection("customer");
+        showSection("welcome");
     }).catch(function (err) {
         console.error("Failed to load data:", err);
-        showSection("customer");
+        showSection("welcome");
     });
 })();
