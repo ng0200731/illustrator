@@ -931,11 +931,10 @@
 
     /* ===== Template — Partition ===== */
     var activePartitionTpl = null;
-    var splitTargetPartition = null;
     var partitionBgImage = null;
     var partitionBgVisible = true;
     var partitionBgOpacity = 0.3;
-    var edgeDragState = null;
+    var rectDrawState = null;
 
     function refreshTemplateSelects(selectId) {
         var sel = document.getElementById(selectId);
@@ -966,6 +965,36 @@
         canvas.className = "label-canvas";
         canvas.style.width = Math.round(tpl.width * sc) + "px";
         canvas.style.height = Math.round(tpl.height * sc) + "px";
+        canvas.style.cursor = "crosshair";
+
+        // Hover snap dot (visible before drag starts)
+        var hoverDot = document.createElement("div");
+        hoverDot.className = "snap-indicator";
+        hoverDot.style.display = "none";
+        canvas.appendChild(hoverDot);
+        var hoverSnapPoints = collectSnapPoints(tpl);
+
+        canvas.addEventListener("mousemove", function (ev) {
+            if (rectDrawState) { hoverDot.style.display = "none"; return; }
+            var rawX = (ev.clientX - canvas.getBoundingClientRect().left) / sc;
+            var rawY = (ev.clientY - canvas.getBoundingClientRect().top) / sc;
+            var snap = snapToPoint(rawX, rawY, hoverSnapPoints, sc, 8);
+            if (Math.abs(snap.x - rawX) > 0.01 || Math.abs(snap.y - rawY) > 0.01) {
+                hoverDot.style.display = "block";
+                hoverDot.style.left = (snap.x * sc - 4) + "px";
+                hoverDot.style.top = (snap.y * sc - 4) + "px";
+            } else {
+                hoverDot.style.display = "none";
+            }
+        });
+        canvas.addEventListener("mouseleave", function () {
+            hoverDot.style.display = "none";
+        });
+
+        canvas.addEventListener("mousedown", function (ev) {
+            if (ev.button !== 0) return;
+            startRectDraw(ev, canvas, sc);
+        });
 
         // Background image layer
         if (partitionBgImage) {
@@ -977,7 +1006,7 @@
             canvas.appendChild(bgEl);
         }
 
-        // Draw partitions with edge zones
+        // Draw partitions
         tpl.partitions.forEach(function (part) {
             var el = document.createElement("div");
             el.className = "partition-area";
@@ -993,18 +1022,6 @@
             lbl.style.position = "relative";
             lbl.textContent = part.label + " (" + part.w.toFixed(1) + "x" + part.h.toFixed(1) + ")";
             el.appendChild(lbl);
-
-            // Edge zones for drag splitting
-            ["top", "bottom", "left", "right"].forEach(function (edge) {
-                var zone = document.createElement("div");
-                zone.className = "partition-edge-zone edge-" + edge;
-                zone.addEventListener("mousedown", function (ev) {
-                    ev.stopPropagation();
-                    ev.preventDefault();
-                    startEdgeDrag(part, edge, ev, canvas, sc);
-                });
-                el.appendChild(zone);
-            });
 
             canvas.appendChild(el);
         });
@@ -1039,111 +1056,233 @@
         });
     }
 
-    // Edge-drag split system
-    function startEdgeDrag(partition, edge, _ev, canvasEl, sc) {
-        var isHorizontal = (edge === "top" || edge === "bottom");
-        var splitDir = isHorizontal ? "horizontal" : "vertical";
-
-        var previewLine = document.createElement("div");
-        previewLine.className = "partition-split-preview " + splitDir;
-
-        if (splitDir === "horizontal") {
-            var startY = (edge === "top") ? partition.y * sc : (partition.y + partition.h) * sc;
-            previewLine.style.top = startY + "px";
-            previewLine.style.left = (partition.x * sc) + "px";
-            previewLine.style.width = (partition.w * sc) + "px";
-            previewLine.style.right = "auto";
-        } else {
-            var startX = (edge === "left") ? partition.x * sc : (partition.x + partition.w) * sc;
-            previewLine.style.left = startX + "px";
-            previewLine.style.top = (partition.y * sc) + "px";
-            previewLine.style.height = (partition.h * sc) + "px";
-            previewLine.style.bottom = "auto";
+    // Rectangle-draw partition system
+    function collectSnapPoints(tpl) {
+        var pts = [];
+        tpl.partitions.forEach(function (p) {
+            pts.push({x: p.x, y: p.y});
+            pts.push({x: p.x + p.w, y: p.y});
+            pts.push({x: p.x, y: p.y + p.h});
+            pts.push({x: p.x + p.w, y: p.y + p.h});
+        });
+        var pa = tpl.printingArea;
+        if (pa) {
+            pts.push({x: pa.x, y: pa.y});
+            pts.push({x: pa.x + pa.w, y: pa.y});
+            pts.push({x: pa.x, y: pa.y + pa.h});
+            pts.push({x: pa.x + pa.w, y: pa.y + pa.h});
         }
-        canvasEl.appendChild(previewLine);
+        var unique = [];
+        pts.forEach(function (p) {
+            var dup = unique.some(function (u) {
+                return Math.abs(u.x - p.x) < 0.01 && Math.abs(u.y - p.y) < 0.01;
+            });
+            if (!dup) unique.push(p);
+        });
+        return unique;
+    }
 
-        edgeDragState = {
-            partition: partition,
-            edge: edge,
-            splitDir: splitDir,
+    function snapToPoint(xMm, yMm, snapPoints, sc, thresholdPx) {
+        var threshMm = thresholdPx / sc;
+        var bestDist = threshMm;
+        var snapped = {x: xMm, y: yMm};
+        snapPoints.forEach(function (pt) {
+            var dist = Math.sqrt(Math.pow(pt.x - xMm, 2) + Math.pow(pt.y - yMm, 2));
+            if (dist < bestDist) {
+                bestDist = dist;
+                snapped = {x: pt.x, y: pt.y};
+            }
+        });
+        return snapped;
+    }
+
+    function findContainingPartition(xMm, yMm, partitions) {
+        for (var i = 0; i < partitions.length; i++) {
+            var p = partitions[i];
+            if (xMm >= p.x && xMm <= p.x + p.w && yMm >= p.y && yMm <= p.y + p.h) {
+                return p;
+            }
+        }
+        return null;
+    }
+
+    function decomposePartition(parent, rect) {
+        var MIN_SIZE = 2;
+        var parts = [];
+        var P = parent;
+        var rx = rect.x, ry = rect.y, rw = rect.w, rh = rect.h;
+
+        // Top strip
+        var topH = ry - P.y;
+        if (topH < MIN_SIZE) { rh += topH; ry = P.y; }
+
+        // Bottom strip
+        var botH = (P.y + P.h) - (ry + rh);
+        if (botH < MIN_SIZE) { rh = (P.y + P.h) - ry; }
+
+        // Left strip
+        var leftW = rx - P.x;
+        if (leftW < MIN_SIZE) { rw += leftW; rx = P.x; }
+
+        // Right strip
+        var rightW = (P.x + P.w) - (rx + rw);
+        if (rightW < MIN_SIZE) { rw = (P.x + P.w) - rx; }
+
+        // Recalculate after absorption
+        topH = ry - P.y;
+        botH = (P.y + P.h) - (ry + rh);
+        leftW = rx - P.x;
+        rightW = (P.x + P.w) - (rx + rw);
+
+        if (topH >= MIN_SIZE)
+            parts.push({label: "", x: P.x, y: P.y, w: P.w, h: topH});
+        if (leftW >= MIN_SIZE)
+            parts.push({label: "", x: P.x, y: ry, w: leftW, h: rh});
+        parts.push({label: "", x: rx, y: ry, w: rw, h: rh});
+        if (rightW >= MIN_SIZE)
+            parts.push({label: "", x: rx + rw, y: ry, w: rightW, h: rh});
+        if (botH >= MIN_SIZE)
+            parts.push({label: "", x: P.x, y: ry + rh, w: P.w, h: botH});
+
+        return parts;
+    }
+
+    function indexToLabel(i) {
+        var label = "";
+        do {
+            label = String.fromCharCode(65 + (i % 26)) + label;
+            i = Math.floor(i / 26) - 1;
+        } while (i >= 0);
+        return label;
+    }
+
+    function assignPartitionLabels(partitions) {
+        partitions.forEach(function (p, i) { p.label = indexToLabel(i); });
+    }
+
+    function startRectDraw(ev, canvasEl, sc) {
+        if (!activePartitionTpl) return;
+        var tpl = activePartitionTpl;
+        var canvasRect = canvasEl.getBoundingClientRect();
+        var rawXmm = (ev.clientX - canvasRect.left) / sc;
+        var rawYmm = (ev.clientY - canvasRect.top) / sc;
+
+        var snapPoints = collectSnapPoints(tpl);
+        var start = snapToPoint(rawXmm, rawYmm, snapPoints, sc, 8);
+
+        var pa = tpl.printingArea;
+        if (!pa) return;
+
+        var previewEl = document.createElement("div");
+        previewEl.className = "rect-draw-preview";
+        canvasEl.appendChild(previewEl);
+
+        var snapDot = document.createElement("div");
+        snapDot.className = "snap-indicator";
+        snapDot.style.display = "none";
+        canvasEl.appendChild(snapDot);
+
+        rectDrawState = {
             sc: sc,
             canvasEl: canvasEl,
-            previewLine: previewLine,
-            canvasRect: canvasEl.getBoundingClientRect()
+            canvasRect: canvasRect,
+            tpl: tpl,
+            bounds: { x: pa.x, y: pa.y, x2: pa.x + pa.w, y2: pa.y + pa.h },
+            startMm: start,
+            snapPoints: snapPoints,
+            previewEl: previewEl,
+            snapDot: snapDot
         };
 
-        document.addEventListener("mousemove", onEdgeDragMove);
-        document.addEventListener("mouseup", onEdgeDragEnd);
+        document.addEventListener("mousemove", onRectDrawMove);
+        document.addEventListener("mouseup", onRectDrawEnd);
     }
 
-    function onEdgeDragMove(e) {
-        if (!edgeDragState) return;
-        var s = edgeDragState;
-        var part = s.partition;
-        var sc = s.sc;
+    function onRectDrawMove(e) {
+        if (!rectDrawState) return;
+        var s = rectDrawState;
+        var B = s.bounds;
+        var rawXmm = Math.max(B.x, Math.min(B.x2, (e.clientX - s.canvasRect.left) / s.sc));
+        var rawYmm = Math.max(B.y, Math.min(B.y2, (e.clientY - s.canvasRect.top) / s.sc));
 
-        if (s.splitDir === "horizontal") {
-            var localY = e.clientY - s.canvasRect.top;
-            var minY = (part.y + 2) * sc;
-            var maxY = (part.y + part.h - 2) * sc;
-            localY = Math.max(minY, Math.min(maxY, localY));
-            s.previewLine.style.top = localY + "px";
+        var end = snapToPoint(rawXmm, rawYmm, s.snapPoints, s.sc, 8);
+        end.x = Math.max(B.x, Math.min(B.x2, end.x));
+        end.y = Math.max(B.y, Math.min(B.y2, end.y));
+
+        var x1 = Math.min(s.startMm.x, end.x);
+        var y1 = Math.min(s.startMm.y, end.y);
+        var x2 = Math.max(s.startMm.x, end.x);
+        var y2 = Math.max(s.startMm.y, end.y);
+
+        s.previewEl.style.left = (x1 * s.sc) + "px";
+        s.previewEl.style.top = (y1 * s.sc) + "px";
+        s.previewEl.style.width = ((x2 - x1) * s.sc) + "px";
+        s.previewEl.style.height = ((y2 - y1) * s.sc) + "px";
+
+        var snapped = (Math.abs(end.x - rawXmm) > 0.01 || Math.abs(end.y - rawYmm) > 0.01);
+        if (snapped) {
+            s.snapDot.style.display = "block";
+            s.snapDot.style.left = (end.x * s.sc - 4) + "px";
+            s.snapDot.style.top = (end.y * s.sc - 4) + "px";
         } else {
-            var localX = e.clientX - s.canvasRect.left;
-            var minX = (part.x + 2) * sc;
-            var maxX = (part.x + part.w - 2) * sc;
-            localX = Math.max(minX, Math.min(maxX, localX));
-            s.previewLine.style.left = localX + "px";
+            s.snapDot.style.display = "none";
         }
     }
 
-    function onEdgeDragEnd(e) {
-        document.removeEventListener("mousemove", onEdgeDragMove);
-        document.removeEventListener("mouseup", onEdgeDragEnd);
-        if (!edgeDragState) return;
-        var s = edgeDragState;
-        var part = s.partition;
-        var sc = s.sc;
+    function onRectDrawEnd(e) {
+        document.removeEventListener("mousemove", onRectDrawMove);
+        document.removeEventListener("mouseup", onRectDrawEnd);
+        if (!rectDrawState) return;
+        var s = rectDrawState;
 
-        if (s.previewLine.parentNode) s.previewLine.parentNode.removeChild(s.previewLine);
+        if (s.previewEl.parentNode) s.previewEl.parentNode.removeChild(s.previewEl);
+        if (s.snapDot.parentNode) s.snapDot.parentNode.removeChild(s.snapDot);
 
-        var offsetMm;
-        if (s.splitDir === "horizontal") {
-            var localY = e.clientY - s.canvasRect.top;
-            localY = Math.max((part.y + 2) * sc, Math.min((part.y + part.h - 2) * sc, localY));
-            offsetMm = (localY / sc) - part.y;
-        } else {
-            var localX = e.clientX - s.canvasRect.left;
-            localX = Math.max((part.x + 2) * sc, Math.min((part.x + part.w - 2) * sc, localX));
-            offsetMm = (localX / sc) - part.x;
-        }
+        var B = s.bounds;
+        var rawXmm = Math.max(B.x, Math.min(B.x2, (e.clientX - s.canvasRect.left) / s.sc));
+        var rawYmm = Math.max(B.y, Math.min(B.y2, (e.clientY - s.canvasRect.top) / s.sc));
+        var end = snapToPoint(rawXmm, rawYmm, s.snapPoints, s.sc, 8);
+        end.x = Math.max(B.x, Math.min(B.x2, end.x));
+        end.y = Math.max(B.y, Math.min(B.y2, end.y));
 
-        offsetMm = Math.round(offsetMm * 10) / 10;
+        var x1 = Math.round(Math.min(s.startMm.x, end.x) * 10) / 10;
+        var y1 = Math.round(Math.min(s.startMm.y, end.y) * 10) / 10;
+        var w = Math.round((Math.max(s.startMm.x, end.x) - x1) * 10) / 10;
+        var h = Math.round((Math.max(s.startMm.y, end.y) - y1) * 10) / 10;
 
-        if (s.splitDir === "horizontal" && (offsetMm < 2 || offsetMm > part.h - 2)) { edgeDragState = null; return; }
-        if (s.splitDir === "vertical" && (offsetMm < 2 || offsetMm > part.w - 2)) { edgeDragState = null; return; }
+        rectDrawState = null;
+        if (w < 2 || h < 2) return;
 
-        var idx = activePartitionTpl.partitions.indexOf(part);
-        if (idx === -1) { edgeDragState = null; return; }
+        // Find parent by center of drawn rectangle
+        var cx = x1 + w / 2;
+        var cy = y1 + h / 2;
+        var parent = findContainingPartition(cx, cy, s.tpl.partitions);
+        if (!parent) return;
 
-        var p1, p2;
-        if (s.splitDir === "horizontal") {
-            p1 = { label: part.label + "-T", x: part.x, y: part.y, w: part.w, h: offsetMm };
-            p2 = { label: part.label + "-B", x: part.x, y: part.y + offsetMm, w: part.w, h: part.h - offsetMm };
-        } else {
-            p1 = { label: part.label + "-L", x: part.x, y: part.y, w: offsetMm, h: part.h };
-            p2 = { label: part.label + "-R", x: part.x + offsetMm, y: part.y, w: part.w - offsetMm, h: part.h };
-        }
+        // Clamp rectangle to parent bounds
+        var px2 = parent.x + parent.w, py2 = parent.y + parent.h;
+        x1 = Math.max(parent.x, x1);
+        y1 = Math.max(parent.y, y1);
+        var ex = Math.min(px2, x1 + w);
+        var ey = Math.min(py2, y1 + h);
+        w = Math.round((ex - x1) * 10) / 10;
+        h = Math.round((ey - y1) * 10) / 10;
+        if (w < 2 || h < 2) return;
 
-        activePartitionTpl.partitions.splice(idx, 1, p1, p2);
-        api("PUT", "/api/templates/" + activePartitionTpl.id + "/partitions", {
-            partitions: activePartitionTpl.partitions
+        var newParts = decomposePartition(parent, {x: x1, y: y1, w: w, h: h});
+        var idx = s.tpl.partitions.indexOf(parent);
+        if (idx === -1) return;
+
+        var args = [idx, 1].concat(newParts);
+        Array.prototype.splice.apply(s.tpl.partitions, args);
+        assignPartitionLabels(s.tpl.partitions);
+
+        api("PUT", "/api/templates/" + s.tpl.id + "/partitions", {
+            partitions: s.tpl.partitions
         }).then(function (resp) {
             activePartitionTpl.partitions = resp.partitions;
             renderPartitionCanvas();
         });
-
-        edgeDragState = null;
     }
 
     // Background image paste
@@ -1199,61 +1338,33 @@
         renderPartitionCanvas();
     });
 
-    // Split modal
-    function openSplitModal(part) {
-        document.getElementById("split-error").classList.remove("visible");
-        document.getElementById("split-offset").value = Math.round(Math.min(part.w, part.h) / 2);
-        document.getElementById("modal-split").classList.add("active");
-    }
+    // Reset all partitions back to initial state
+    document.getElementById("btn-reset-partitions").addEventListener("click", function () {
+        if (!activePartitionTpl) return;
+        var tpl = activePartitionTpl;
+        var pa = tpl.printingArea || calcPrintingArea(tpl);
+        var partitions = [];
 
-    document.getElementById("btn-split-cancel").addEventListener("click", function () {
-        document.getElementById("modal-split").classList.remove("active");
-    });
-
-    document.getElementById("btn-split-ok").addEventListener("click", function () {
-        if (document.getElementById("hp-split").value) return;
-        if (!splitTargetPartition || !activePartitionTpl) return;
-        var dir = document.getElementById("split-direction").value;
-        var offset = parseFloat(document.getElementById("split-offset").value);
-        var part = splitTargetPartition;
-        var errEl = document.getElementById("split-error");
-
-        // Validate
-        if (dir === "vertical" && offset >= part.w) {
-            errEl.textContent = "Offset (" + offset + "mm) exceeds partition width (" + part.w.toFixed(1) + "mm).";
-            errEl.classList.add("visible");
-            return;
-        }
-        if (dir === "horizontal" && offset >= part.h) {
-            errEl.textContent = "Offset (" + offset + "mm) exceeds partition height (" + part.h.toFixed(1) + "mm).";
-            errEl.classList.add("visible");
-            return;
-        }
-        if (offset <= 0) {
-            errEl.textContent = "Offset must be > 0.";
-            errEl.classList.add("visible");
-            return;
-        }
-
-        // Split
-        var idx = activePartitionTpl.partitions.indexOf(part);
-        if (idx === -1) return;
-
-        var p1, p2;
-        if (dir === "vertical") {
-            p1 = { label: part.label + "-L", x: part.x, y: part.y, w: offset, h: part.h };
-            p2 = { label: part.label + "-R", x: part.x + offset, y: part.y, w: part.w - offset, h: part.h };
+        if (tpl.folding && tpl.folding.type === "mid") {
+            var fp = tpl.folding.padding || 0;
+            if (tpl.orientation === "vertical") {
+                var halfH = tpl.height / 2;
+                partitions.push({ label: "Top", x: pa.x, y: pa.y, w: pa.w, h: halfH - fp - pa.y });
+                partitions.push({ label: "Bottom", x: pa.x, y: halfH + fp, w: pa.w, h: (pa.y + pa.h) - (halfH + fp) });
+            } else {
+                var halfW = tpl.width / 2;
+                partitions.push({ label: "Left", x: pa.x, y: pa.y, w: halfW - fp - pa.x, h: pa.h });
+                partitions.push({ label: "Right", x: halfW + fp, y: pa.y, w: (pa.x + pa.w) - (halfW + fp), h: pa.h });
+            }
         } else {
-            p1 = { label: part.label + "-T", x: part.x, y: part.y, w: part.w, h: offset };
-            p2 = { label: part.label + "-B", x: part.x, y: part.y + offset, w: part.w, h: part.h - offset };
+            partitions.push({ label: "Main", x: pa.x, y: pa.y, w: pa.w, h: pa.h });
         }
 
-        activePartitionTpl.partitions.splice(idx, 1, p1, p2);
-        api("PUT", "/api/templates/" + activePartitionTpl.id + "/partitions", {
-            partitions: activePartitionTpl.partitions
+        activePartitionTpl.partitions = partitions;
+        api("PUT", "/api/templates/" + tpl.id + "/partitions", {
+            partitions: partitions
         }).then(function (resp) {
             activePartitionTpl.partitions = resp.partitions;
-            document.getElementById("modal-split").classList.remove("active");
             renderPartitionCanvas();
         });
     });
@@ -1270,6 +1381,74 @@
         preview.innerHTML = '<div class="preview-hint">Component drag-drop — details to follow.</div>';
     });
 
+    /* ===== Load template for editing (from View All dblclick) ===== */
+    function loadTemplateForEditing(t) {
+        // Populate form fields
+        document.getElementById("tpl-customer").value = t.customerId || "";
+        document.getElementById("tpl-name").value = t.name || "";
+        document.getElementById("tpl-width").value = t.width || "";
+        document.getElementById("tpl-height").value = t.height || "";
+
+        // Orientation
+        document.getElementById("tpl-orientation").value = t.orientation || "vertical";
+        document.querySelectorAll(".orient-btn").forEach(function (b) {
+            b.classList.toggle("active", b.dataset.orient === t.orientation);
+        });
+
+        // Padding
+        document.getElementById("tpl-pad-top").value = t.padding.top;
+        document.getElementById("tpl-pad-bottom").value = t.padding.bottom;
+        document.getElementById("tpl-pad-left").value = t.padding.left;
+        document.getElementById("tpl-pad-right").value = t.padding.right;
+        var allSame = t.padding.top === t.padding.bottom && t.padding.top === t.padding.left && t.padding.top === t.padding.right;
+        var padLinkEl = document.getElementById("tpl-pad-link");
+        padLinkEl.checked = allSame;
+        padOthers.forEach(function (el) { el.disabled = allSame; });
+        updateLinkToggleUI();
+
+        // Line type
+        var lineType = (t.folding && t.folding.type === "mid") ? "fold" : "sewing";
+        document.getElementById("tpl-line-type").value = lineType;
+        document.querySelectorAll(".line-type-btn").forEach(function (b) {
+            b.classList.toggle("active", b.dataset.linetype === lineType);
+        });
+        document.getElementById("fields-sewing").classList.toggle("hidden", lineType !== "sewing");
+        document.getElementById("fields-fold").classList.toggle("hidden", lineType !== "fold");
+
+        // Sewing
+        if (t.sewing) {
+            document.getElementById("tpl-sew-position").value = t.sewing.position || "top";
+            document.getElementById("tpl-sew-distance").value = t.sewing.distance || 0;
+            document.getElementById("tpl-sew-padding").value = t.sewing.padding || 0;
+        }
+
+        // Folding
+        if (t.folding) {
+            document.getElementById("tpl-fold-padding").value = t.folding.padding || 0;
+        }
+
+        // Set as active template for editing
+        activePartitionTpl = t;
+
+        // Switch to Create tab → Template sub-tab
+        var sec = document.getElementById("section-template");
+        sec.querySelectorAll(".tab").forEach(function (tab) { tab.classList.remove("active"); });
+        sec.querySelectorAll(":scope > .tab-content").forEach(function (tc) { tc.classList.remove("active"); });
+        sec.querySelector('.tab[data-tab="template-create"]').classList.add("active");
+        document.getElementById("tab-template-create").classList.add("active");
+
+        // Enable Partition & Component sub-tabs
+        var bar = document.querySelector('#tab-template-create .sub-tab-bar');
+        bar.querySelectorAll('.sub-tab.disabled').forEach(function (s) { s.classList.remove('disabled'); });
+
+        // Go to Template setup first so user sees the form
+        switchToSubTab("tab-template-create", "tpl-setup");
+        document.getElementById("partition-tpl-name").textContent = t.name;
+
+        enforceSewingMin();
+        renderTemplatePreview();
+    }
+
     /* ===== Template — View All Table ===== */
     function renderTemplateTable() {
         var tbody = document.querySelector("#table-templates tbody");
@@ -1281,11 +1460,16 @@
             var custName = cust ? cust.company : "—";
             var tr = document.createElement("tr");
             tr.innerHTML = "<td>" + esc(t.name) + "</td><td>" + esc(custName) + "</td><td>" + t.width + "x" + t.height + " mm</td><td>" + esc(t.orientation) + "</td><td>" + esc(t.folding.type) + "</td><td>" + t.partitions.length + "</td><td><button class='btn-outline' style='padding:2px 8px;font-size:11px'>Delete</button></td>";
-            tr.querySelector("button").addEventListener("click", function () {
+            tr.querySelector("button").addEventListener("click", function (e) {
+                e.stopPropagation();
                 api("DELETE", "/api/templates/" + t.id).then(function () {
                     store.templates = store.templates.filter(function (x) { return x.id !== t.id; });
                     renderTemplateTable();
                 });
+            });
+            tr.style.cursor = "pointer";
+            tr.addEventListener("dblclick", function () {
+                loadTemplateForEditing(t);
             });
             tbody.appendChild(tr);
         });

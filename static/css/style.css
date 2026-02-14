@@ -681,6 +681,7 @@ tbody tr:hover {
     position: absolute;
     border: 1px solid #ccc;
     cursor: pointer;
+    z-index: 1;
 }
 
 .partition-area:hover {
@@ -885,66 +886,30 @@ tbody tr:hover {
     left: 0;
     width: 100%;
     height: 100%;
-    object-fit: contain;
+    object-fit: fill;
     pointer-events: none;
     z-index: 0;
     opacity: 0.3;
 }
 
-/* ===== Partition Edge Drag ===== */
-.partition-area {
-    z-index: 1;
-}
-
-.partition-edge-zone {
+/* ===== Rectangle Draw Preview ===== */
+.rect-draw-preview {
     position: absolute;
-    z-index: 2;
-}
-
-.partition-edge-zone.edge-top,
-.partition-edge-zone.edge-bottom {
-    left: 0;
-    right: 0;
-    height: 6px;
-    cursor: row-resize;
-}
-.partition-edge-zone.edge-top { top: -3px; }
-.partition-edge-zone.edge-bottom { bottom: -3px; }
-
-.partition-edge-zone.edge-left,
-.partition-edge-zone.edge-right {
-    top: 0;
-    bottom: 0;
-    width: 6px;
-    cursor: col-resize;
-}
-.partition-edge-zone.edge-left { left: -3px; }
-.partition-edge-zone.edge-right { right: -3px; }
-
-.partition-edge-zone:hover,
-.partition-edge-zone.active {
-    background: red;
-    opacity: 0.6;
-}
-
-.partition-split-preview {
-    position: absolute;
-    z-index: 3;
+    border: 1px dashed #000;
+    background: rgba(0, 0, 0, 0.05);
     pointer-events: none;
+    z-index: 3;
 }
 
-.partition-split-preview.horizontal {
-    left: 0;
-    right: 0;
-    height: 0;
-    border-top: 2px solid red;
-}
-
-.partition-split-preview.vertical {
-    top: 0;
-    bottom: 0;
-    width: 0;
-    border-left: 2px solid red;
+.snap-indicator {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border: 1px solid red;
+    border-radius: 50%;
+    background: red;
+    pointer-events: none;
+    z-index: 4;
 }
 
 /* ===== Opacity Slider ===== */

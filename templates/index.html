@@ -267,7 +267,8 @@
                             <div class="template-form" style="width:200px">
                                 <label>Template</label>
                                 <span id="partition-tpl-name" class="tpl-name-display"></span>
-                                <p class="hint">Drag an edge inward to split. Paste an image for reference.</p>
+                                <p class="hint">Click and drag inside a partition to subdivide. Paste an image for reference.</p>
+                                <button type="button" class="btn-icon" id="btn-reset-partitions" title="Reset all partitions"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 2l12 12M14 2L2 14"/></svg></button>
                                 <div id="partition-bg-controls" style="display:none">
                                     <label style="font-size:11px">Background</label>
                                     <div class="input-row" style="align-items:center;gap:4px;margin:4px 0">
@@ -340,28 +341,6 @@
             </section>
 
         </main>
-    </div>
-
-    <!-- Split Partition Modal -->
-    <div class="modal-overlay" id="modal-split">
-        <div class="modal">
-            <h2>Split Partition</h2>
-            <div class="error-msg" id="split-error"></div>
-            <div class="hp-field"><input type="text" name="company" tabindex="-1" autocomplete="off" id="hp-split"></div>
-            <div class="input-row">
-                <div><label for="split-direction">Direction</label>
-                    <select id="split-direction">
-                        <option value="vertical">Vertical</option>
-                        <option value="horizontal">Horizontal</option>
-                    </select>
-                </div>
-                <div><label for="split-offset">Offset (mm)</label><input type="number" id="split-offset" min="0.1" step="0.1" value="10"></div>
-            </div>
-            <div class="modal-actions">
-                <button id="btn-split-cancel" class="btn-outline">Cancel</button>
-                <button id="btn-split-ok">Split</button>
-            </div>
-        </div>
     </div>
 
     <script src="/static/js/app.js"></script>
