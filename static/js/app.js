@@ -657,8 +657,82 @@
         sizeLabel.textContent = tpl.width + " x " + tpl.height + " mm  " + arrow + " " + tpl.orientation;
         canvas.appendChild(sizeLabel);
 
-        preview.appendChild(canvas);
+        var wrap = document.createElement("div");
+        wrap.className = "preview-wrap";
+        wrap.appendChild(canvas);
+        wrap.style.transform = "translate(" + panState.x + "px," + panState.y + "px) scale(" + panState.zoom + ")";
+        preview.appendChild(wrap);
     }
+
+    /* ===== Canvas Pan & Zoom ===== */
+    var panState = { x: 0, y: 0, zoom: 1, spaceDown: false, dragging: false, startX: 0, startY: 0, origX: 0, origY: 0 };
+
+    function applyPanZoom() {
+        var wrap = document.querySelector("#template-preview .preview-wrap");
+        if (wrap) wrap.style.transform = "translate(" + panState.x + "px," + panState.y + "px) scale(" + panState.zoom + ")";
+    }
+
+    document.addEventListener("keydown", function (e) {
+        if (e.code === "Space" && !panState.spaceDown) {
+            var preview = document.getElementById("template-preview");
+            if (preview && preview.closest(".section-panel.active")) {
+                e.preventDefault();
+                panState.spaceDown = true;
+                preview.classList.add("pan-ready");
+            }
+        }
+    });
+
+    document.addEventListener("keyup", function (e) {
+        if (e.code === "Space") {
+            panState.spaceDown = false;
+            panState.dragging = false;
+            var preview = document.getElementById("template-preview");
+            if (preview) {
+                preview.classList.remove("pan-ready");
+                preview.classList.remove("panning");
+            }
+        }
+    });
+
+    document.getElementById("template-preview").addEventListener("mousedown", function (e) {
+        if (panState.spaceDown) {
+            e.preventDefault();
+            panState.dragging = true;
+            panState.startX = e.clientX;
+            panState.startY = e.clientY;
+            panState.origX = panState.x;
+            panState.origY = panState.y;
+            this.classList.add("panning");
+            this.classList.remove("pan-ready");
+        }
+    });
+
+    document.addEventListener("mousemove", function (e) {
+        if (panState.dragging) {
+            panState.x = panState.origX + (e.clientX - panState.startX);
+            panState.y = panState.origY + (e.clientY - panState.startY);
+            applyPanZoom();
+        }
+    });
+
+    document.addEventListener("mouseup", function () {
+        if (panState.dragging) {
+            panState.dragging = false;
+            var preview = document.getElementById("template-preview");
+            if (preview) {
+                preview.classList.remove("panning");
+                if (panState.spaceDown) preview.classList.add("pan-ready");
+            }
+        }
+    });
+
+    document.getElementById("template-preview").addEventListener("wheel", function (e) {
+        e.preventDefault();
+        var delta = e.deltaY > 0 ? 0.9 : 1.1;
+        panState.zoom = Math.min(Math.max(panState.zoom * delta, 0.2), 10);
+        applyPanZoom();
+    }, { passive: false });
 
     // Save template
     document.getElementById("form-template-create").addEventListener("submit", function (e) {

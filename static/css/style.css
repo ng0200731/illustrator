@@ -443,7 +443,19 @@ tbody tr:hover {
     align-items: center;
     justify-content: center;
     position: relative;
-    overflow: auto;
+    overflow: hidden;
+}
+
+.template-preview.pan-ready {
+    cursor: grab;
+}
+
+.template-preview.panning {
+    cursor: grabbing;
+}
+
+.preview-wrap {
+    transform-origin: 0 0;
 }
 
 .preview-hint {
