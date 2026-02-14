@@ -403,6 +403,37 @@
         hInput.value = tmp;
         renderTemplatePreview();
     });
+    // Padding link toggle
+    var padLink = document.getElementById("tpl-pad-link");
+    var padTop = document.getElementById("tpl-pad-top");
+    var padOthers = ["tpl-pad-bottom", "tpl-pad-left", "tpl-pad-right"].map(function (id) { return document.getElementById(id); });
+
+    function syncPadding() {
+        if (padLink.checked) {
+            padOthers.forEach(function (el) { el.value = padTop.value; el.disabled = true; });
+        }
+        renderTemplatePreview();
+    }
+    function updateLinkToggleUI() {
+        var toggle = document.getElementById("pad-link-toggle");
+        var span = toggle.querySelector("span");
+        if (padLink.checked) {
+            toggle.classList.add("linked");
+            span.textContent = "Linked";
+        } else {
+            toggle.classList.remove("linked");
+            span.textContent = "Unlinked";
+        }
+    }
+    padLink.addEventListener("change", function () {
+        updateLinkToggleUI();
+        if (padLink.checked) {
+            syncPadding();
+        } else {
+            padOthers.forEach(function (el) { el.disabled = false; });
+        }
+    });
+    padTop.addEventListener("input", syncPadding);
     // Line type toggle: Sewing vs Mid Fold (mutually exclusive)
     document.querySelectorAll(".line-type-btn").forEach(function (btn) {
         btn.addEventListener("click", function () {
@@ -509,12 +540,18 @@
         return regions;
     }
 
+    function clearPreview(preview) {
+        var btn = preview.querySelector(".btn-fit");
+        preview.innerHTML = "";
+        if (btn) preview.appendChild(btn);
+    }
+
     function renderTemplatePreview() {
         var tpl = getTemplateFormData();
         var preview = document.getElementById("template-preview");
-        preview.innerHTML = "";
+        clearPreview(preview);
         if (!tpl.width || !tpl.height) {
-            preview.innerHTML = '<div class="preview-hint">Click "Preview" to see label layout.</div>';
+            preview.insertAdjacentHTML("beforeend", '<div class="preview-hint">Click "Preview" to see label layout.</div>');
             return;
         }
 
@@ -693,6 +730,17 @@
     /* ===== Canvas Pan & Zoom ===== */
     var panState = { x: 0, y: 0, zoom: 1, spaceDown: false, dragging: false, startX: 0, startY: 0, origX: 0, origY: 0 };
 
+    function resetPanZoom() {
+        panState.x = 0;
+        panState.y = 0;
+        panState.zoom = 1;
+        applyPanZoom();
+    }
+
+    document.querySelectorAll(".btn-fit").forEach(function (btn) {
+        btn.addEventListener("click", resetPanZoom);
+    });
+
     function applyPanZoom() {
         var wrap = document.querySelector("#template-preview .preview-wrap");
         if (wrap) wrap.style.transform = "translate(" + panState.x + "px," + panState.y + "px) scale(" + panState.zoom + ")";
@@ -842,7 +890,7 @@
 
     function showTwoPiecePreview(tpl) {
         var preview = document.getElementById("template-preview");
-        preview.innerHTML = "";
+        clearPreview(preview);
 
         var wrap = document.createElement("div");
         wrap.className = "two-piece-wrap";
@@ -884,6 +932,10 @@
     /* ===== Template — Partition ===== */
     var activePartitionTpl = null;
     var splitTargetPartition = null;
+    var partitionBgImage = null;
+    var partitionBgVisible = true;
+    var partitionBgOpacity = 0.3;
+    var edgeDragState = null;
 
     function refreshTemplateSelects(selectId) {
         var sel = document.getElementById(selectId);
@@ -899,9 +951,9 @@
 
     function renderPartitionCanvas() {
         var preview = document.getElementById("partition-preview");
-        preview.innerHTML = "";
+        clearPreview(preview);
         if (!activePartitionTpl) {
-            preview.innerHTML = '<div class="preview-hint">Select a template to begin.</div>';
+            preview.insertAdjacentHTML("beforeend", '<div class="preview-hint">Select a template to begin.</div>');
             return;
         }
 
@@ -915,7 +967,17 @@
         canvas.style.width = Math.round(tpl.width * sc) + "px";
         canvas.style.height = Math.round(tpl.height * sc) + "px";
 
-        // Draw partitions
+        // Background image layer
+        if (partitionBgImage) {
+            var bgEl = document.createElement("img");
+            bgEl.className = "partition-bg-img";
+            bgEl.src = partitionBgImage.src;
+            bgEl.style.opacity = partitionBgOpacity;
+            if (!partitionBgVisible) bgEl.style.display = "none";
+            canvas.appendChild(bgEl);
+        }
+
+        // Draw partitions with edge zones
         tpl.partitions.forEach(function (part) {
             var el = document.createElement("div");
             el.className = "partition-area";
@@ -932,10 +994,16 @@
             lbl.textContent = part.label + " (" + part.w.toFixed(1) + "x" + part.h.toFixed(1) + ")";
             el.appendChild(lbl);
 
-            el.addEventListener("dblclick", function (e) {
-                e.stopPropagation();
-                splitTargetPartition = part;
-                openSplitModal(part);
+            // Edge zones for drag splitting
+            ["top", "bottom", "left", "right"].forEach(function (edge) {
+                var zone = document.createElement("div");
+                zone.className = "partition-edge-zone edge-" + edge;
+                zone.addEventListener("mousedown", function (ev) {
+                    ev.stopPropagation();
+                    ev.preventDefault();
+                    startEdgeDrag(part, edge, ev, canvas, sc);
+                });
+                el.appendChild(zone);
             });
 
             canvas.appendChild(el);
@@ -970,6 +1038,166 @@
             list.appendChild(div);
         });
     }
+
+    // Edge-drag split system
+    function startEdgeDrag(partition, edge, _ev, canvasEl, sc) {
+        var isHorizontal = (edge === "top" || edge === "bottom");
+        var splitDir = isHorizontal ? "horizontal" : "vertical";
+
+        var previewLine = document.createElement("div");
+        previewLine.className = "partition-split-preview " + splitDir;
+
+        if (splitDir === "horizontal") {
+            var startY = (edge === "top") ? partition.y * sc : (partition.y + partition.h) * sc;
+            previewLine.style.top = startY + "px";
+            previewLine.style.left = (partition.x * sc) + "px";
+            previewLine.style.width = (partition.w * sc) + "px";
+            previewLine.style.right = "auto";
+        } else {
+            var startX = (edge === "left") ? partition.x * sc : (partition.x + partition.w) * sc;
+            previewLine.style.left = startX + "px";
+            previewLine.style.top = (partition.y * sc) + "px";
+            previewLine.style.height = (partition.h * sc) + "px";
+            previewLine.style.bottom = "auto";
+        }
+        canvasEl.appendChild(previewLine);
+
+        edgeDragState = {
+            partition: partition,
+            edge: edge,
+            splitDir: splitDir,
+            sc: sc,
+            canvasEl: canvasEl,
+            previewLine: previewLine,
+            canvasRect: canvasEl.getBoundingClientRect()
+        };
+
+        document.addEventListener("mousemove", onEdgeDragMove);
+        document.addEventListener("mouseup", onEdgeDragEnd);
+    }
+
+    function onEdgeDragMove(e) {
+        if (!edgeDragState) return;
+        var s = edgeDragState;
+        var part = s.partition;
+        var sc = s.sc;
+
+        if (s.splitDir === "horizontal") {
+            var localY = e.clientY - s.canvasRect.top;
+            var minY = (part.y + 2) * sc;
+            var maxY = (part.y + part.h - 2) * sc;
+            localY = Math.max(minY, Math.min(maxY, localY));
+            s.previewLine.style.top = localY + "px";
+        } else {
+            var localX = e.clientX - s.canvasRect.left;
+            var minX = (part.x + 2) * sc;
+            var maxX = (part.x + part.w - 2) * sc;
+            localX = Math.max(minX, Math.min(maxX, localX));
+            s.previewLine.style.left = localX + "px";
+        }
+    }
+
+    function onEdgeDragEnd(e) {
+        document.removeEventListener("mousemove", onEdgeDragMove);
+        document.removeEventListener("mouseup", onEdgeDragEnd);
+        if (!edgeDragState) return;
+        var s = edgeDragState;
+        var part = s.partition;
+        var sc = s.sc;
+
+        if (s.previewLine.parentNode) s.previewLine.parentNode.removeChild(s.previewLine);
+
+        var offsetMm;
+        if (s.splitDir === "horizontal") {
+            var localY = e.clientY - s.canvasRect.top;
+            localY = Math.max((part.y + 2) * sc, Math.min((part.y + part.h - 2) * sc, localY));
+            offsetMm = (localY / sc) - part.y;
+        } else {
+            var localX = e.clientX - s.canvasRect.left;
+            localX = Math.max((part.x + 2) * sc, Math.min((part.x + part.w - 2) * sc, localX));
+            offsetMm = (localX / sc) - part.x;
+        }
+
+        offsetMm = Math.round(offsetMm * 10) / 10;
+
+        if (s.splitDir === "horizontal" && (offsetMm < 2 || offsetMm > part.h - 2)) { edgeDragState = null; return; }
+        if (s.splitDir === "vertical" && (offsetMm < 2 || offsetMm > part.w - 2)) { edgeDragState = null; return; }
+
+        var idx = activePartitionTpl.partitions.indexOf(part);
+        if (idx === -1) { edgeDragState = null; return; }
+
+        var p1, p2;
+        if (s.splitDir === "horizontal") {
+            p1 = { label: part.label + "-T", x: part.x, y: part.y, w: part.w, h: offsetMm };
+            p2 = { label: part.label + "-B", x: part.x, y: part.y + offsetMm, w: part.w, h: part.h - offsetMm };
+        } else {
+            p1 = { label: part.label + "-L", x: part.x, y: part.y, w: offsetMm, h: part.h };
+            p2 = { label: part.label + "-R", x: part.x + offsetMm, y: part.y, w: part.w - offsetMm, h: part.h };
+        }
+
+        activePartitionTpl.partitions.splice(idx, 1, p1, p2);
+        api("PUT", "/api/templates/" + activePartitionTpl.id + "/partitions", {
+            partitions: activePartitionTpl.partitions
+        }).then(function (resp) {
+            activePartitionTpl.partitions = resp.partitions;
+            renderPartitionCanvas();
+        });
+
+        edgeDragState = null;
+    }
+
+    // Background image paste
+    document.addEventListener("paste", function (e) {
+        var tab = document.getElementById("subtab-tpl-partition");
+        if (!tab || !tab.classList.contains("active")) return;
+        if (!activePartitionTpl) return;
+        var items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (var i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf("image") !== -1) {
+                e.preventDefault();
+                var blob = items[i].getAsFile();
+                var reader = new FileReader();
+                reader.onload = function (ev) {
+                    var img = new Image();
+                    img.onload = function () {
+                        partitionBgImage = img;
+                        partitionBgVisible = true;
+                        partitionBgOpacity = parseInt(document.getElementById("partition-bg-opacity").value) / 100;
+                        document.getElementById("partition-bg-controls").style.display = "";
+                        renderPartitionCanvas();
+                    };
+                    img.src = ev.target.result;
+                };
+                reader.readAsDataURL(blob);
+                break;
+            }
+        }
+    });
+
+    // Eye toggle
+    document.getElementById("btn-bg-toggle").addEventListener("click", function () {
+        partitionBgVisible = !partitionBgVisible;
+        document.getElementById("ico-eye-open").style.display = partitionBgVisible ? "" : "none";
+        document.getElementById("ico-eye-closed").style.display = partitionBgVisible ? "none" : "";
+        var bgEl = document.querySelector("#partition-preview .partition-bg-img");
+        if (bgEl) bgEl.style.display = partitionBgVisible ? "" : "none";
+    });
+
+    // Opacity slider
+    document.getElementById("partition-bg-opacity").addEventListener("input", function () {
+        partitionBgOpacity = parseInt(this.value) / 100;
+        document.getElementById("partition-bg-opacity-val").textContent = this.value + "%";
+        var bgEl = document.querySelector("#partition-preview .partition-bg-img");
+        if (bgEl) bgEl.style.opacity = partitionBgOpacity;
+    });
+
+    // Remove background image
+    document.getElementById("btn-bg-remove").addEventListener("click", function () {
+        partitionBgImage = null;
+        partitionBgVisible = true;
+        document.getElementById("partition-bg-controls").style.display = "none";
+        renderPartitionCanvas();
+    });
 
     // Split modal
     function openSplitModal(part) {
