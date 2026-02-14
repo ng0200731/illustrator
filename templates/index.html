@@ -215,33 +215,33 @@
                                         </div>
                                     </fieldset>
                                     <fieldset>
-                                        <legend>Sewing (mm from edge)</legend>
-                                        <div class="input-row">
-                                            <div><label for="tpl-sew-position">Position</label>
-                                                <select id="tpl-sew-position">
-                                                    <option value="none">None</option>
-                                                    <option value="top">Top</option>
-                                                    <option value="bottom">Bottom</option>
-                                                    <option value="left">Left</option>
-                                                    <option value="right">Right</option>
-                                                </select>
-                                            </div>
-                                            <div><label for="tpl-sew-distance">Distance</label><input type="number" id="tpl-sew-distance" min="0" step="1" value="0"></div>
+                                        <legend>Line Type</legend>
+                                        <div class="line-type-toggle">
+                                            <div class="line-type-btn active" data-linetype="sewing">Sewing</div>
+                                            <div class="line-type-btn" data-linetype="fold">Mid Fold</div>
                                         </div>
-                                        <label for="tpl-sew-padding">Sewing Padding (mm)</label>
-                                        <input type="number" id="tpl-sew-padding" min="0" step="1" value="0">
+                                        <div class="line-type-fields" id="fields-sewing">
+                                            <div class="input-row">
+                                                <div><label for="tpl-sew-position">Position</label>
+                                                    <select id="tpl-sew-position">
+                                                        <option value="top">Top</option>
+                                                        <option value="bottom">Bottom</option>
+                                                        <option value="left">Left</option>
+                                                        <option value="right">Right</option>
+                                                    </select>
+                                                </div>
+                                                <div><label for="tpl-sew-distance">Distance</label><input type="number" id="tpl-sew-distance" min="0" step="1" value="0"></div>
+                                            </div>
+                                            <label for="tpl-sew-padding">Sewing Padding (mm)</label>
+                                            <input type="number" id="tpl-sew-padding" min="0" step="1" value="0">
+                                        </div>
+                                        <div class="line-type-fields hidden" id="fields-fold">
+                                            <label for="tpl-fold-padding">Fold Padding (mm)</label>
+                                            <input type="number" id="tpl-fold-padding" min="0" step="1" value="0">
+                                        </div>
+                                        <input type="hidden" id="tpl-fold" value="none">
+                                        <input type="hidden" id="tpl-line-type" value="sewing">
                                     </fieldset>
-                                    <fieldset>
-                                        <legend>Folding</legend>
-                                        <div class="input-row">
-                                            <div><label for="tpl-fold">Fold Type</label>
-                                                <select id="tpl-fold">
-                                                    <option value="mid">Mid Fold</option>
-                                                    <option value="none">No Fold</option>
-                                                </select>
-                                            </div>
-                                            <div><label for="tpl-fold-padding">Fold Padding (mm)</label><input type="number" id="tpl-fold-padding" min="0" step="1" value="0"></div>
-                                        </div>
                                     </fieldset>
                                     <div class="form-actions">
                                         <button type="submit">Save</button>

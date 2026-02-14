@@ -346,6 +346,39 @@ fieldset legend {
     color: #000;
 }
 
+/* ===== Line Type Toggle ===== */
+.line-type-toggle {
+    display: flex;
+    gap: 4px;
+    margin: 2px 0 4px;
+}
+
+.line-type-btn {
+    flex: 1;
+    padding: 4px 0;
+    text-align: center;
+    font-size: 11px;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    user-select: none;
+    color: #999;
+}
+
+.line-type-btn:hover {
+    border-color: #666;
+    color: #666;
+}
+
+.line-type-btn.active {
+    border-color: #000;
+    color: #000;
+    font-weight: 600;
+}
+
+.line-type-fields.hidden {
+    display: none;
+}
+
 /* ===== Buttons ===== */
 button {
     display: inline-block;

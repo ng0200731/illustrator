@@ -394,9 +394,26 @@
             renderTemplatePreview();
         });
     });
-    document.getElementById("tpl-fold").addEventListener("change", renderTemplatePreview);
+    // Line type toggle: Sewing vs Mid Fold (mutually exclusive)
+    document.querySelectorAll(".line-type-btn").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            document.querySelectorAll(".line-type-btn").forEach(function (b) { b.classList.remove("active"); });
+            btn.classList.add("active");
+            var type = btn.dataset.linetype;
+            document.getElementById("tpl-line-type").value = type;
+            if (type === "sewing") {
+                document.getElementById("fields-sewing").classList.remove("hidden");
+                document.getElementById("fields-fold").classList.add("hidden");
+            } else {
+                document.getElementById("fields-fold").classList.remove("hidden");
+                document.getElementById("fields-sewing").classList.add("hidden");
+            }
+            renderTemplatePreview();
+        });
+    });
 
     function getTemplateFormData() {
+        var lineType = document.getElementById("tpl-line-type").value;
         return {
             customerId: document.getElementById("tpl-customer").value,
             name: document.getElementById("tpl-name").value.trim(),
@@ -410,12 +427,12 @@
                 right: parseFloat(document.getElementById("tpl-pad-right").value) || 0
             },
             sewing: {
-                position: document.getElementById("tpl-sew-position").value,
+                position: lineType === "sewing" ? document.getElementById("tpl-sew-position").value : "none",
                 distance: parseFloat(document.getElementById("tpl-sew-distance").value) || 0,
                 padding: parseFloat(document.getElementById("tpl-sew-padding").value) || 0
             },
             folding: {
-                type: document.getElementById("tpl-fold").value,
+                type: lineType === "fold" ? "mid" : "none",
                 padding: parseFloat(document.getElementById("tpl-fold-padding").value) || 0
             }
         };
@@ -1103,10 +1120,18 @@
             document.getElementById("tpl-pad-bottom").value = pad;
             document.getElementById("tpl-pad-left").value = pad;
             document.getElementById("tpl-pad-right").value = pad;
-            document.getElementById("tpl-sew-position").value = rand(["none", "top", "left"]);
-            document.getElementById("tpl-sew-distance").value = rand([0, 8, 10, 12]);
+            // Toggle between sewing or fold
+            var lineType = rand(["sewing", "fold"]);
+            document.getElementById("tpl-line-type").value = lineType;
+            document.querySelectorAll(".line-type-btn").forEach(function (b) {
+                b.classList.toggle("active", b.dataset.linetype === lineType);
+            });
+            document.getElementById("fields-sewing").classList.toggle("hidden", lineType !== "sewing");
+            document.getElementById("fields-fold").classList.toggle("hidden", lineType !== "fold");
+            // Fill both sides with values (preserved when switching)
+            document.getElementById("tpl-sew-position").value = rand(["top", "left"]);
+            document.getElementById("tpl-sew-distance").value = rand([8, 10, 12]);
             document.getElementById("tpl-sew-padding").value = rand([0, 1, 2]);
-            document.getElementById("tpl-fold").value = rand(["mid", "none"]);
             document.getElementById("tpl-fold-padding").value = rand([0, 1, 2]);
             enforceSewingMin();
             renderTemplatePreview();
