@@ -183,7 +183,7 @@
                     <!-- Sub-tab: Template setup -->
                     <div class="sub-tab-content active" id="subtab-tpl-setup">
                         <div class="template-layout">
-                            <div class="template-form">
+                            <div class="template-form" style="width:200px">
                                 <form id="form-template-create" autocomplete="off">
                                     <div class="hp-field"><input type="text" name="website" tabindex="-1" autocomplete="off"></div>
                                     <label for="tpl-customer">Customer</label>
@@ -232,7 +232,7 @@
                                                     </select>
                                                 </div>
                                                 <div><label for="tpl-sew-distance">Distance</label><input type="number" id="tpl-sew-distance" min="0" step="1" value="0"></div>
-                                                <div><label for="tpl-sew-padding">Padding (mm)</label><input type="number" id="tpl-sew-padding" min="0" step="1" value="0"></div>
+                                                <div><label for="tpl-sew-padding">Padding</label><input type="number" id="tpl-sew-padding" min="0" step="1" value="0"></div>
                                             </div>
                                         </div>
                                         <div class="line-type-fields hidden" id="fields-fold">
@@ -244,9 +244,9 @@
                                     </fieldset>
                                     </fieldset>
                                     <div class="form-actions">
-                                        <button type="submit">Save</button>
-                                        <button type="reset" class="btn-outline">Cancel</button>
-                                        <button type="button" class="btn-outline btn-dummy" data-form="template-create">Dummy</button>
+                                        <button type="submit" class="btn-icon" title="Save"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M2 8l4 4 8-8" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+                                        <button type="reset" class="btn-icon" title="Cancel"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M3 3l10 10M13 3L3 13" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
+                                        <button type="button" class="btn-icon btn-dummy" data-form="template-create" title="Dummy"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M2 4h12M2 8h12M2 12h8" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
                                     </div>
                                 </form>
                             </div>

@@ -439,6 +439,20 @@ button.btn-outline:hover {
     gap: 6px;
 }
 
+.btn-icon {
+    background: transparent;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    padding: 4px 6px;
+    line-height: 1;
+    color: #666;
+}
+.btn-icon:hover {
+    background: #000;
+    color: #fff;
+    border-color: #000;
+}
+
 /* ===== Tables ===== */
 .table-toolbar {
     margin-bottom: 12px;
