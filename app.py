@@ -8,8 +8,13 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16MB max upload
 
 TOOLS_DIR = os.path.join(os.path.dirname(__file__), "tools")
-TMP_DIR = os.path.join(os.path.dirname(__file__), ".tmp")
-os.makedirs(TMP_DIR, exist_ok=True)
+
+# Vercel serverless: filesystem is read-only except /tmp
+if os.environ.get("VERCEL"):
+    TMP_DIR = "/tmp"
+else:
+    TMP_DIR = os.path.join(os.path.dirname(__file__), ".tmp")
+    os.makedirs(TMP_DIR, exist_ok=True)
 
 DB_PATH = os.path.join(TMP_DIR, "app.db")
 

@@ -5,7 +5,11 @@ import sqlite3
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCHEMA_PATH = os.path.join(BASE_DIR, "sql", "schema.sql")
-DB_PATH = os.path.join(BASE_DIR, ".tmp", "app.db")
+
+if os.environ.get("VERCEL"):
+    DB_PATH = "/tmp/app.db"
+else:
+    DB_PATH = os.path.join(BASE_DIR, ".tmp", "app.db")
 
 
 def init_db():
