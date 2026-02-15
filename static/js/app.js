@@ -112,6 +112,7 @@
             if (st.dataset.subtab === "sup-member") refreshSupplierSelects();
             if (st.dataset.subtab === "tpl-component") refreshTemplateSelects("comp-tpl-select");
             if (st.dataset.subtab === "tpl-setup") renderTemplatePreview();
+            if (st.dataset.subtab === "tpl-partition") renderPartitionCanvas();
         });
     });
 
@@ -1462,12 +1463,26 @@
     // Save partitions button
     document.getElementById("btn-save-partitions").addEventListener("click", function () {
         if (!activePartitionTpl) return;
+        var btn = this;
         var tpl = activePartitionTpl;
-        api("PUT", "/api/templates/" + tpl.id + "/partitions", {
-            partitions: tpl.partitions
-        }).then(function (resp) {
+        var payload = {
+            partitions: tpl.partitions,
+            bgImage: partitionBgImage ? partitionBgImage.src : ""
+        };
+        btn.disabled = true;
+        btn.textContent = "Saving...";
+        api("PUT", "/api/templates/" + tpl.id + "/partitions", payload).then(function (resp) {
             activePartitionTpl.partitions = resp.partitions;
             renderPartitionCanvas();
+            btn.textContent = "Saved!";
+            setTimeout(function () {
+                btn.textContent = "Save";
+                btn.disabled = false;
+            }, 1500);
+        }).catch(function () {
+            btn.textContent = "Save";
+            btn.disabled = false;
+            alert("Save failed. Please try again.");
         });
     });
 
@@ -1539,6 +1554,21 @@
 
         // Set as active template for editing
         activePartitionTpl = t;
+
+        // Restore background image if saved
+        if (t.bgImage) {
+            var img = new Image();
+            img.onload = function () {
+                partitionBgImage = img;
+                partitionBgVisible = true;
+                partitionBgOpacity = parseInt(document.getElementById("partition-bg-opacity").value) / 100;
+                renderPartitionCanvas();
+            };
+            img.src = t.bgImage;
+        } else {
+            partitionBgImage = null;
+            partitionBgVisible = true;
+        }
 
         // Switch to Create tab → Template sub-tab
         var sec = document.getElementById("section-template");

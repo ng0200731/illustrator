@@ -558,7 +558,7 @@ tbody tr:hover {
     align-items: center;
     justify-content: center;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .btn-fit {
@@ -601,7 +601,7 @@ tbody tr:hover {
     background: #fff;
     border: 2px solid #000;
     position: relative;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .label-canvas .dotted-rect {

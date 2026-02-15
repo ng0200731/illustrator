@@ -43,7 +43,8 @@ CREATE TABLE IF NOT EXISTS templates (
     print_x REAL DEFAULT 0,
     print_y REAL DEFAULT 0,
     print_w REAL DEFAULT 0,
-    print_h REAL DEFAULT 0
+    print_h REAL DEFAULT 0,
+    bg_image TEXT DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS partitions (

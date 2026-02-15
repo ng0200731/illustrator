@@ -50,7 +50,8 @@ def _template_to_dict(row, partitions):
             "w": row["print_w"], "h": row["print_h"]
         },
         "partitions": [dict(p) for p in partitions],
-        "components": []
+        "components": [],
+        "bgImage": row["bg_image"] or ""
     }
 
 
@@ -61,6 +62,17 @@ if not os.path.exists(DB_PATH):
         init_db()
     except Exception as e:
         print(f"DB init failed: {e}")
+else:
+    # Migrate: add bg_image column if missing
+    try:
+        _mc = sqlite3.connect(DB_PATH)
+        _cols = [r[1] for r in _mc.execute("PRAGMA table_info(templates)").fetchall()]
+        if "bg_image" not in _cols:
+            _mc.execute("ALTER TABLE templates ADD COLUMN bg_image TEXT DEFAULT ''")
+            _mc.commit()
+        _mc.close()
+    except Exception as e:
+        print(f"Migration failed: {e}")
 
 
 @app.route("/")
@@ -216,13 +228,14 @@ def api_create_template():
             pad_top, pad_bottom, pad_left, pad_right,
             sew_position, sew_distance, sew_padding,
             fold_type, fold_padding,
-            print_x, print_y, print_w, print_h)
-           VALUES (?,?,?,?,?, ?,?,?,?, ?,?,?, ?,?, ?,?,?,?)""",
+            print_x, print_y, print_w, print_h, bg_image)
+           VALUES (?,?,?,?,?, ?,?,?,?, ?,?,?, ?,?, ?,?,?,?, ?)""",
         (d["customerId"], d["name"], d["width"], d["height"], d["orientation"],
          pad.get("top", 0), pad.get("bottom", 0), pad.get("left", 0), pad.get("right", 0),
          sew.get("position", "none"), sew.get("distance", 0), sew.get("padding", 0),
          fold.get("type", "none"), fold.get("padding", 0),
-         pa.get("x", 0), pa.get("y", 0), pa.get("w", 0), pa.get("h", 0))
+         pa.get("x", 0), pa.get("y", 0), pa.get("w", 0), pa.get("h", 0),
+         d.get("bgImage", ""))
     )
     tid = cur.lastrowid
     parts_out = []
@@ -264,13 +277,14 @@ def api_update_template(tid):
            pad_top=?, pad_bottom=?, pad_left=?, pad_right=?,
            sew_position=?, sew_distance=?, sew_padding=?,
            fold_type=?, fold_padding=?,
-           print_x=?, print_y=?, print_w=?, print_h=?
+           print_x=?, print_y=?, print_w=?, print_h=?, bg_image=?
            WHERE id=?""",
         (d["customerId"], d["name"], d["width"], d["height"], d["orientation"],
          pad.get("top", 0), pad.get("bottom", 0), pad.get("left", 0), pad.get("right", 0),
          sew.get("position", "none"), sew.get("distance", 0), sew.get("padding", 0),
          fold.get("type", "none"), fold.get("padding", 0),
          pa.get("x", 0), pa.get("y", 0), pa.get("w", 0), pa.get("h", 0),
+         d.get("bgImage", ""),
          tid)
     )
     db.execute("DELETE FROM partitions WHERE template_id=?", (tid,))
@@ -293,6 +307,9 @@ def api_update_template(tid):
 def api_update_partitions(tid):
     d = request.get_json()
     db = get_db()
+    # Save bg_image if provided
+    if "bgImage" in d:
+        db.execute("UPDATE templates SET bg_image=? WHERE id=?", (d["bgImage"], tid))
     db.execute("DELETE FROM partitions WHERE template_id=?", (tid,))
     parts_out = []
     for p in d.get("partitions", []):
