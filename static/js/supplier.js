@@ -11,7 +11,7 @@
             address: document.getElementById("sup-address").value.trim(),
             phone: document.getElementById("sup-phone").value.trim()
         };
-        if (!s.company || !s.domain) { alert("Company and domain required."); return; }
+        if (!s.company || !s.domain) { App.alert("Company and domain required."); return; }
         var form = this;
         App.api("POST", "/api/suppliers", s).then(function (saved) {
             App.store.suppliers.push(saved);
@@ -19,7 +19,7 @@
             App.refreshSupplierSelects();
             App.switchToSubTab("tab-supplier-create", "sup-member");
             document.getElementById("sup-member-company").value = saved.id;
-            alert("Supplier created. Switching to Member tab.");
+            App.alert("Supplier created. Switching to Member tab.");
         });
     });
 
@@ -28,14 +28,14 @@
         if (this.querySelector('[name="website"]').value) return;
         var compId = parseInt(document.getElementById("sup-member-company").value);
         var sup = App.store.suppliers.find(function (s) { return s.id === compId; });
-        if (!sup) { alert("Select a company."); return; }
+        if (!sup) { App.alert("Select a company."); return; }
         var member = {
             name: document.getElementById("sup-member-name").value.trim(),
             email: document.getElementById("sup-member-email").value.trim(),
             role: document.getElementById("sup-member-role").value.trim(),
             phone: document.getElementById("sup-member-phone").value.trim()
         };
-        if (!member.name || !member.email) { alert("Name and email required."); return; }
+        if (!member.name || !member.email) { App.alert("Name and email required."); return; }
         var form = this;
         App.api("POST", "/api/members", {
             parent_type: "supplier", parent_id: compId,
@@ -45,7 +45,7 @@
             var selVal = document.getElementById("sup-member-company").value;
             form.reset();
             document.getElementById("sup-member-company").value = selVal;
-            alert("Member added.");
+            App.alert("Member added.");
         });
     });
 

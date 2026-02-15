@@ -439,13 +439,13 @@
         e.preventDefault();
         if (this.querySelector('[name="website"]').value) return;
         var tpl = App.getTemplateFormData();
-        if (!tpl.name) { alert("Template name required."); return; }
-        if (!tpl.customerId) { alert("Select a customer."); return; }
+        if (!tpl.name) { App.alert("Template name required."); return; }
+        if (!tpl.customerId) { App.alert("Select a customer."); return; }
 
         if (tpl.sewing.position !== "none" && tpl.sewing.distance > 0) {
             var padVal = tpl.padding[tpl.sewing.position] || 0;
             if (tpl.sewing.distance < padVal) {
-                alert("Sewing distance (" + tpl.sewing.distance + "mm) must be equal or bigger than " + tpl.sewing.position + " padding (" + padVal + "mm).");
+                App.alert("Sewing distance (" + tpl.sewing.distance + "mm) must be equal or bigger than " + tpl.sewing.position + " padding (" + padVal + "mm).");
                 return;
             }
         }

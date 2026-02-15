@@ -76,29 +76,31 @@
     function removePage(pageIdx) {
         var tpl = App.activePartitionTpl;
         if (!tpl || getPageCount() <= 1) return;
-        if (!confirm("Delete page " + pageLabel(pageIdx) + " and all its partitions?")) return;
+        App.confirm("Delete page " + pageLabel(pageIdx) + " and all its partitions?").then(function (ok) {
+            if (!ok) return;
 
-        /* Remove partitions on this page */
-        tpl.partitions = tpl.partitions.filter(function (p) {
-            return (p.page || 0) !== pageIdx;
-        });
-        /* Shift higher pages down by 1 */
-        tpl.partitions.forEach(function (p) {
-            if ((p.page || 0) > pageIdx) p.page = (p.page || 0) - 1;
-        });
-        /* Remove bg image for this page, shift higher ones */
-        var newBg = {};
-        Object.keys(partitionBgImages).forEach(function (pg) {
-            var n = parseInt(pg);
-            if (n < pageIdx) newBg[n] = partitionBgImages[n];
-            else if (n > pageIdx) newBg[n - 1] = partitionBgImages[n];
-        });
-        partitionBgImages = newBg;
+            /* Remove partitions on this page */
+            tpl.partitions = tpl.partitions.filter(function (p) {
+                return (p.page || 0) !== pageIdx;
+            });
+            /* Shift higher pages down by 1 */
+            tpl.partitions.forEach(function (p) {
+                if ((p.page || 0) > pageIdx) p.page = (p.page || 0) - 1;
+            });
+            /* Remove bg image for this page, shift higher ones */
+            var newBg = {};
+            Object.keys(partitionBgImages).forEach(function (pg) {
+                var n = parseInt(pg);
+                if (n < pageIdx) newBg[n] = partitionBgImages[n];
+                else if (n > pageIdx) newBg[n - 1] = partitionBgImages[n];
+            });
+            partitionBgImages = newBg;
 
-        if (App.activePartitionPage >= getPageCount()) {
-            App.activePartitionPage = getPageCount() - 1;
-        }
-        App.renderPartitionCanvas();
+            if (App.activePartitionPage >= getPageCount()) {
+                App.activePartitionPage = getPageCount() - 1;
+            }
+            App.renderPartitionCanvas();
+        });
     }
 
     function renderPageTabs() {
@@ -192,11 +194,12 @@
     function removePartition(index) {
         var tpl = App.activePartitionTpl;
         if (!tpl || getPagePartitions().length <= 1) return;
-        if (!confirm("Delete this partition?")) return;
-
-        tpl.partitions.splice(index, 1);
-        assignPartitionLabelsForPage(tpl.partitions, App.activePartitionPage);
-        App.renderPartitionCanvas();
+        App.confirm("Delete this partition?").then(function (ok) {
+            if (!ok) return;
+            tpl.partitions.splice(index, 1);
+            assignPartitionLabelsForPage(tpl.partitions, App.activePartitionPage);
+            App.renderPartitionCanvas();
+        });
     }
 
     function indexToLabel(i) {
@@ -569,15 +572,17 @@
 
     document.getElementById("btn-reset-partitions").addEventListener("click", function () {
         if (!App.activePartitionTpl) return;
-        if (!confirm("Reset all partitions to last saved state?")) return;
         var btn = this;
-        if (savedPartitions) {
-            App.activePartitionTpl.partitions = JSON.parse(JSON.stringify(savedPartitions));
-        }
-        App.activePartitionPage = 0;
-        App.renderPartitionCanvas();
-        btn.textContent = "Reset!";
-        setTimeout(function () { btn.textContent = "Reset"; }, 1500);
+        App.confirm("Reset all partitions to last saved state?").then(function (ok) {
+            if (!ok) return;
+            if (savedPartitions) {
+                App.activePartitionTpl.partitions = JSON.parse(JSON.stringify(savedPartitions));
+            }
+            App.activePartitionPage = 0;
+            App.renderPartitionCanvas();
+            btn.textContent = "Reset!";
+            setTimeout(function () { btn.textContent = "Reset"; }, 1500);
+        });
     });
 
     function serializePartitions(parts) {
@@ -617,7 +622,7 @@
         }).catch(function () {
             btn.textContent = "Save";
             btn.disabled = false;
-            alert("Save failed. Please try again.");
+            App.alert("Save failed. Please try again.");
         });
     });
 

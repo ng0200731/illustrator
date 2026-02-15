@@ -30,6 +30,32 @@
             return d.innerHTML;
         },
         rand: function (arr) { return arr[Math.floor(Math.random() * arr.length)]; },
-        randNum: function (min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+        randNum: function (min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; },
+
+        /* In-page modal — replaces alert() / confirm() */
+        _modal: function (msg, isConfirm) {
+            var overlay = document.getElementById("app-modal-overlay");
+            var body = document.getElementById("app-modal-body");
+            var btnOk = document.getElementById("app-modal-ok");
+            var btnCancel = document.getElementById("app-modal-cancel");
+            body.textContent = msg;
+            btnCancel.style.display = isConfirm ? "" : "none";
+            overlay.classList.add("active");
+            btnOk.focus();
+            return new Promise(function (resolve) {
+                function close(val) {
+                    overlay.classList.remove("active");
+                    btnOk.removeEventListener("click", onOk);
+                    btnCancel.removeEventListener("click", onCancel);
+                    resolve(val);
+                }
+                function onOk() { close(true); }
+                function onCancel() { close(false); }
+                btnOk.addEventListener("click", onOk);
+                btnCancel.addEventListener("click", onCancel);
+            });
+        },
+        alert: function (msg) { return App._modal(msg, false); },
+        confirm: function (msg) { return App._modal(msg, true); }
     };
 })();

@@ -96,6 +96,12 @@ Every failure is a chance to make the system stronger:
 - No color accents unless explicitly requested
 - Minimal design: clean layouts, no unnecessary decoration
 
+### UI — No Browser Popups
+
+- Never use `alert()`, `confirm()`, or `prompt()` in JavaScript
+- All user notifications and confirmations must use in-page UI (modals, inline messages, toasts)
+- Modal CSS already exists in `static/css/style.css` (`.modal-overlay`, `.modal`, `.modal-actions`)
+
 ## File Structure
 
 **What goes where:**
