@@ -18,7 +18,9 @@
             var opts = { method: method, headers: { "Content-Type": "application/json" } };
             if (body) opts.body = JSON.stringify(body);
             return fetch(url, opts).then(function (r) {
-                if (!r.ok) throw new Error("API error " + r.status);
+                if (!r.ok) return r.json().catch(function () { return {}; }).then(function (data) {
+                    throw new Error(data.error || "API error " + r.status);
+                });
                 return r.json();
             });
         },
@@ -56,6 +58,18 @@
             });
         },
         alert: function (msg) { return App._modal(msg, false); },
-        confirm: function (msg) { return App._modal(msg, true); }
+        confirm: function (msg) { return App._modal(msg, true); },
+
+        showToast: function (msg, isError) {
+            var el = document.createElement("div");
+            el.className = "toast" + (isError ? " toast-error" : "");
+            el.textContent = msg;
+            document.body.appendChild(el);
+            setTimeout(function () { el.classList.add("show"); }, 10);
+            setTimeout(function () {
+                el.classList.remove("show");
+                setTimeout(function () { el.remove(); }, 300);
+            }, 4000);
+        }
     };
 })();

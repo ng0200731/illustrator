@@ -456,9 +456,37 @@
         var isUpdate = !!App.activePartitionTpl;
 
         if (isUpdate) {
-            // Use last-saved partitions, not live in-memory edits
-            tpl.partitions = App._getPartitionSnapshot() || App.activePartitionTpl.partitions;
             tpl.bgImage = App.activePartitionTpl.bgImage || "";
+            // Detect if template config changed — if so, recalculate page-0 partitions
+            var oldPa = App.activePartitionTpl.printingArea;
+            var newPa = tpl.printingArea;
+            var oldFold = (App.activePartitionTpl.folding || {}).type || "none";
+            var newFold = tpl.folding.type;
+            var configChanged = oldFold !== newFold
+                || Math.abs(oldPa.x - newPa.x) > 0.01 || Math.abs(oldPa.y - newPa.y) > 0.01
+                || Math.abs(oldPa.w - newPa.w) > 0.01 || Math.abs(oldPa.h - newPa.h) > 0.01;
+            if (configChanged) {
+                // Keep partitions on other pages, regenerate page 0
+                var kept = (App._getPartitionSnapshot() || App.activePartitionTpl.partitions).filter(function (p) { return (p.page || 0) !== 0; });
+                var fresh = [];
+                if (tpl.folding.type === "mid") {
+                    var fp = tpl.folding.padding || 0;
+                    if (tpl.orientation === "vertical") {
+                        var halfH = tpl.height / 2;
+                        fresh.push({ page: 0, label: "Top", x: newPa.x, y: newPa.y, w: newPa.w, h: halfH - fp - newPa.y });
+                        fresh.push({ page: 0, label: "Bottom", x: newPa.x, y: halfH + fp, w: newPa.w, h: (newPa.y + newPa.h) - (halfH + fp) });
+                    } else {
+                        var halfW = tpl.width / 2;
+                        fresh.push({ page: 0, label: "Left", x: newPa.x, y: newPa.y, w: halfW - fp - newPa.x, h: newPa.h });
+                        fresh.push({ page: 0, label: "Right", x: halfW + fp, y: newPa.y, w: (newPa.x + newPa.w) - (halfW + fp), h: newPa.h });
+                    }
+                } else {
+                    fresh.push({ page: 0, label: "Main", x: newPa.x, y: newPa.y, w: newPa.w, h: newPa.h });
+                }
+                tpl.partitions = fresh.concat(kept);
+            } else {
+                tpl.partitions = App._getPartitionSnapshot() || App.activePartitionTpl.partitions;
+            }
         } else {
             // New template: create default partitions
             tpl.partitions = [];
@@ -497,6 +525,9 @@
             App.activePartitionPage = 0;
             App._snapshotPartitions();
             requestAnimationFrame(function () { App.renderPartitionCanvas(); });
+        }).catch(function (err) {
+            console.error("Template save failed:", err);
+            App.showToast("Save failed: " + err.message, true);
         });
     });
 

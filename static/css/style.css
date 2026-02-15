@@ -1016,3 +1016,22 @@ tbody tr:hover {
     border-radius: 50%;
     cursor: pointer;
 }
+
+/* Toast notifications */
+.toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #000;
+    color: #fff;
+    padding: 10px 20px;
+    font-size: 13px;
+    border: 1px solid #333;
+    z-index: 9999;
+    opacity: 0;
+    transition: opacity .3s, transform .3s;
+    pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.toast-error { border-color: #000; background: #fff; color: #000; font-weight: 600; }
