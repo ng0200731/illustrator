@@ -604,12 +604,26 @@
         App.activePartitionPage = 0;
 
         if (t.bgImage) {
-            var img = new Image();
-            img.onload = function () {
-                App._setPartitionBg(img);
-                App.renderPartitionCanvas();
-            };
-            img.src = t.bgImage;
+            var bgMap = {};
+            try { bgMap = JSON.parse(t.bgImage); } catch (e) {
+                /* backward compat: plain data URL → assign to page 0 */
+                if (t.bgImage.indexOf("data:") === 0) bgMap = { "0": t.bgImage };
+            }
+            var pages = Object.keys(bgMap);
+            var loaded = 0;
+            pages.forEach(function (pg) {
+                var img = new Image();
+                img.onload = function () {
+                    App.activePartitionPage = parseInt(pg);
+                    App._setPartitionBg(img);
+                    loaded++;
+                    if (loaded === pages.length) {
+                        App.activePartitionPage = 0;
+                        App.renderPartitionCanvas();
+                    }
+                };
+                img.src = bgMap[pg];
+            });
         } else {
             App._clearPartitionBg();
         }

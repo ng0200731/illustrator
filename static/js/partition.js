@@ -3,10 +3,9 @@
     var App = window.App;
 
     /* Private state */
-    var partitionBgImage = null;
+    var partitionBgImages = {};   /* page index → Image object */
     var partitionBgVisible = true;
     var partitionBgOpacity = 0.3;
-    var partitionBgPage = 0;
     var rectDrawState = null;
     var partitionEditMode = false;
     var partitionSnapshot = null;
@@ -16,14 +15,13 @@
 
     /* Helpers for template.js to set/clear bg from loadTemplateForEditing */
     App._setPartitionBg = function (img) {
-        partitionBgImage = img;
+        partitionBgImages[App.activePartitionPage] = img;
         partitionBgVisible = true;
-        partitionBgPage = App.activePartitionPage;
         partitionBgOpacity = parseInt(document.getElementById("partition-bg-opacity").value) / 100;
         document.getElementById("partition-bg-controls").style.display = "";
     };
     App._clearPartitionBg = function () {
-        partitionBgImage = null;
+        partitionBgImages = {};
         partitionBgVisible = true;
     };
 
@@ -271,6 +269,8 @@
         var preview = document.getElementById("partition-preview");
         App.clearPreview(preview);
         renderPageTabs();
+        document.getElementById("partition-bg-controls").style.display =
+            partitionBgImages[App.activePartitionPage] ? "" : "none";
         if (!App.activePartitionTpl) {
             preview.insertAdjacentHTML("beforeend", '<div class="preview-hint">Select a template to begin.</div>');
             return;
@@ -378,10 +378,11 @@
             startRectDraw(ev, canvas, sc);
         });
 
-        if (partitionBgImage && partitionBgPage === App.activePartitionPage) {
+        var pageBgImg = partitionBgImages[App.activePartitionPage];
+        if (pageBgImg) {
             var bgEl = document.createElement("img");
             bgEl.className = "partition-bg-img";
-            bgEl.src = partitionBgImage.src;
+            bgEl.src = pageBgImg.src;
             bgEl.style.opacity = partitionBgOpacity;
             if (!partitionBgVisible) bgEl.style.display = "none";
             canvas.appendChild(bgEl);
@@ -504,9 +505,8 @@
                 reader.onload = function (ev) {
                     var img = new Image();
                     img.onload = function () {
-                        partitionBgImage = img;
+                        partitionBgImages[App.activePartitionPage] = img;
                         partitionBgVisible = true;
-                        partitionBgPage = App.activePartitionPage;
                         partitionBgOpacity = parseInt(document.getElementById("partition-bg-opacity").value) / 100;
                         document.getElementById("partition-bg-controls").style.display = "";
                         App.renderPartitionCanvas();
@@ -535,7 +535,7 @@
     });
 
     document.getElementById("btn-bg-remove").addEventListener("click", function () {
-        partitionBgImage = null;
+        delete partitionBgImages[App.activePartitionPage];
         partitionBgVisible = true;
         document.getElementById("partition-bg-controls").style.display = "none";
         App.renderPartitionCanvas();
@@ -587,15 +587,20 @@
         var tpl = App.activePartitionTpl;
         var serialized = serializePartitions(tpl.partitions);
         console.log("SAVE sending partitions:", JSON.stringify(serialized));
+        var bgMap = {};
+        Object.keys(partitionBgImages).forEach(function (pg) {
+            bgMap[pg] = partitionBgImages[pg].src;
+        });
         var payload = {
             partitions: serialized,
-            bgImage: partitionBgImage ? partitionBgImage.src : ""
+            bgImage: JSON.stringify(bgMap)
         };
         btn.disabled = true;
         btn.textContent = "Saving...";
         App.api("PUT", "/api/templates/" + tpl.id + "/partitions", payload).then(function (resp) {
             console.log("SAVE received partitions:", JSON.stringify(resp.partitions));
             App.activePartitionTpl.partitions = resp.partitions;
+            App.activePartitionTpl.bgImage = JSON.stringify(bgMap);
             partitionSnapshot = null;
             App.renderPartitionCanvas();
             btn.textContent = "Saved!";
