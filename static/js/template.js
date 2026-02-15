@@ -495,6 +495,7 @@
             document.getElementById("partition-tpl-name").textContent = saved.name;
             App.activePartitionTpl = saved;
             App.activePartitionPage = 0;
+            App._snapshotPartitions();
             requestAnimationFrame(function () { App.renderPartitionCanvas(); });
         });
     });
@@ -602,6 +603,7 @@
 
         App.activePartitionTpl = t;
         App.activePartitionPage = 0;
+        App._snapshotPartitions();
 
         if (t.bgImage) {
             var bgMap = {};

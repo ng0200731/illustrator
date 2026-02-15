@@ -9,9 +9,17 @@
     var rectDrawState = null;
     var partitionEditMode = false;
     var partitionSnapshot = null;
+    var savedPartitions = null;    /* last-saved state for reset */
 
     /* Return last-saved partitions if unsaved edits are in progress */
     App._getPartitionSnapshot = function () { return partitionSnapshot; };
+
+    /* Called when template is loaded for editing — captures the saved state */
+    App._snapshotPartitions = function () {
+        if (App.activePartitionTpl) {
+            savedPartitions = JSON.parse(JSON.stringify(App.activePartitionTpl.partitions));
+        }
+    };
 
     /* Helpers for template.js to set/clear bg from loadTemplateForEditing */
     App._setPartitionBg = function (img) {
@@ -84,11 +92,6 @@
             App.activePartitionPage = getPageCount() - 1;
         }
         App.renderPartitionCanvas();
-
-        /* Persist */
-        App.api("PUT", "/api/templates/" + tpl.id + "/partitions", {
-            partitions: serializePartitions(tpl.partitions)
-        });
     }
 
     function renderPageTabs() {
@@ -101,18 +104,6 @@
             tab.className = "page-tab" + (i === App.activePartitionPage ? " active" : "");
             tab.textContent = pageLabel(i);
             tab.dataset.page = String(i);
-            if (count > 1) {
-                var closeBtn = document.createElement("span");
-                closeBtn.className = "page-tab-close";
-                closeBtn.textContent = "\u00d7";
-                (function (idx) {
-                    closeBtn.addEventListener("click", function (e) {
-                        e.stopPropagation();
-                        removePage(idx);
-                    });
-                })(i);
-                tab.appendChild(closeBtn);
-            }
             (function (idx) {
                 tab.addEventListener("click", function () {
                     App.activePartitionPage = idx;
@@ -187,33 +178,6 @@
         var tpl = App.activePartitionTpl;
         if (!tpl || getPagePartitions().length <= 1) return;
         if (!confirm("Delete this partition?")) return;
-        var removed = tpl.partitions[index];
-        var EPSILON = 0.1;
-        var bestNeighbor = null, bestLength = 0, bestEdge = null;
-
-        tpl.partitions.forEach(function (p) {
-            if (p === removed) return;
-            if ((p.page || 0) !== (removed.page || 0)) return;
-            [["top", (p.y + p.h), removed.y, "x"],
-             ["bottom", p.y, (removed.y + removed.h), "x"],
-             ["left", (p.x + p.w), removed.x, "y"],
-             ["right", p.x, (removed.x + removed.w), "y"]
-            ].forEach(function (cfg) {
-                if (Math.abs(cfg[1] - cfg[2]) < EPSILON) {
-                    var overlap = (cfg[3] === "x")
-                        ? Math.min(p.x + p.w, removed.x + removed.w) - Math.max(p.x, removed.x)
-                        : Math.min(p.y + p.h, removed.y + removed.h) - Math.max(p.y, removed.y);
-                    if (overlap > bestLength) { bestLength = overlap; bestNeighbor = p; bestEdge = cfg[0]; }
-                }
-            });
-        });
-
-        if (bestNeighbor) {
-            if (bestEdge === "top")    bestNeighbor.h += removed.h;
-            if (bestEdge === "bottom") { bestNeighbor.y = removed.y; bestNeighbor.h += removed.h; }
-            if (bestEdge === "left")   bestNeighbor.w += removed.w;
-            if (bestEdge === "right")  { bestNeighbor.x = removed.x; bestNeighbor.w += removed.w; }
-        }
 
         tpl.partitions.splice(index, 1);
         assignPartitionLabelsForPage(tpl.partitions, App.activePartitionPage);
@@ -590,36 +554,15 @@
 
     document.getElementById("btn-reset-partitions").addEventListener("click", function () {
         if (!App.activePartitionTpl) return;
-        var tpl = App.activePartitionTpl;
-        var pa = tpl.printingArea || App.calcPrintingArea(tpl);
-        var currentPage = App.activePartitionPage;
-        var newPagePartitions = [];
-
-        if (tpl.folding && tpl.folding.type === "mid") {
-            var fp = tpl.folding.padding || 0;
-            if (tpl.orientation === "vertical") {
-                var halfH = tpl.height / 2;
-                newPagePartitions.push({ page: currentPage, label: "Top", x: pa.x, y: pa.y, w: pa.w, h: halfH - fp - pa.y });
-                newPagePartitions.push({ page: currentPage, label: "Bottom", x: pa.x, y: halfH + fp, w: pa.w, h: (pa.y + pa.h) - (halfH + fp) });
-            } else {
-                var halfW = tpl.width / 2;
-                newPagePartitions.push({ page: currentPage, label: "Left", x: pa.x, y: pa.y, w: halfW - fp - pa.x, h: pa.h });
-                newPagePartitions.push({ page: currentPage, label: "Right", x: halfW + fp, y: pa.y, w: (pa.x + pa.w) - (halfW + fp), h: pa.h });
-            }
-        } else {
-            newPagePartitions.push({ page: currentPage, label: "Main", x: pa.x, y: pa.y, w: pa.w, h: pa.h });
+        if (!confirm("Reset all partitions to last saved state?")) return;
+        var btn = this;
+        if (savedPartitions) {
+            App.activePartitionTpl.partitions = JSON.parse(JSON.stringify(savedPartitions));
         }
-
-        tpl.partitions = tpl.partitions.filter(function (p) {
-            return (p.page || 0) !== currentPage;
-        }).concat(newPagePartitions);
-
-        App.api("PUT", "/api/templates/" + tpl.id + "/partitions", {
-            partitions: serializePartitions(tpl.partitions)
-        }).then(function (resp) {
-            App.activePartitionTpl.partitions = resp.partitions;
-            App.renderPartitionCanvas();
-        });
+        App.activePartitionPage = 0;
+        App.renderPartitionCanvas();
+        btn.textContent = "Reset!";
+        setTimeout(function () { btn.textContent = "Reset"; }, 1500);
     });
 
     function serializePartitions(parts) {
@@ -648,6 +591,7 @@
             console.log("SAVE received partitions:", JSON.stringify(resp.partitions));
             App.activePartitionTpl.partitions = resp.partitions;
             App.activePartitionTpl.bgImage = JSON.stringify(bgMap);
+            savedPartitions = JSON.parse(JSON.stringify(resp.partitions));
             partitionSnapshot = null;
             App.renderPartitionCanvas();
             btn.textContent = "Saved!";
@@ -670,13 +614,6 @@
             partitionSnapshot = JSON.parse(JSON.stringify(App.activePartitionTpl.partitions));
         }
         App.renderPartitionCanvas();
-    });
-
-    document.getElementById("btn-reset-edit-partitions").addEventListener("click", function () {
-        if (partitionSnapshot && App.activePartitionTpl) {
-            App.activePartitionTpl.partitions = JSON.parse(JSON.stringify(partitionSnapshot));
-            App.renderPartitionCanvas();
-        }
     });
 
     document.getElementById("btn-add-page").addEventListener("click", function () {
@@ -705,10 +642,5 @@
         assignPartitionLabelsForPage(tpl.partitions, newPageIndex);
         App.activePartitionPage = newPageIndex;
         App.renderPartitionCanvas();
-
-        /* Auto-save so the new page is persisted immediately */
-        App.api("PUT", "/api/templates/" + tpl.id + "/partitions", {
-            partitions: serializePartitions(tpl.partitions)
-        });
     });
 })();
