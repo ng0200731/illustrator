@@ -935,6 +935,7 @@
     var partitionBgVisible = true;
     var partitionBgOpacity = 0.3;
     var rectDrawState = null;
+    var partitionEditMode = false;
 
     function refreshTemplateSelects(selectId) {
         var sel = document.getElementById(selectId);
@@ -965,21 +966,21 @@
         canvas.className = "label-canvas";
         canvas.style.width = Math.round(tpl.width * sc) + "px";
         canvas.style.height = Math.round(tpl.height * sc) + "px";
-        canvas.style.cursor = "crosshair";
+        canvas.style.cursor = partitionEditMode ? "default" : "crosshair";
 
         // Hover snap dot (visible before drag starts)
         var hoverDot = document.createElement("div");
         hoverDot.className = "snap-indicator";
         hoverDot.style.display = "none";
         canvas.appendChild(hoverDot);
-        var hoverSnapPoints = collectSnapPoints(tpl);
+        var hoverSnapEdges = collectSnapEdges(tpl);
 
         canvas.addEventListener("mousemove", function (ev) {
-            if (rectDrawState) { hoverDot.style.display = "none"; return; }
+            if (rectDrawState || partitionEditMode) { hoverDot.style.display = "none"; return; }
             var rawX = (ev.clientX - canvas.getBoundingClientRect().left) / sc;
             var rawY = (ev.clientY - canvas.getBoundingClientRect().top) / sc;
-            var snap = snapToPoint(rawX, rawY, hoverSnapPoints, sc, 8);
-            if (Math.abs(snap.x - rawX) > 0.01 || Math.abs(snap.y - rawY) > 0.01) {
+            var snap = snapToEdges(rawX, rawY, hoverSnapEdges, sc, 8);
+            if (snap.snapped) {
                 hoverDot.style.display = "block";
                 hoverDot.style.left = (snap.x * sc - 4) + "px";
                 hoverDot.style.top = (snap.y * sc - 4) + "px";
@@ -991,8 +992,64 @@
             hoverDot.style.display = "none";
         });
 
+        // Resize drag handler (edit mode only)
         canvas.addEventListener("mousedown", function (ev) {
-            if (ev.button !== 0) return;
+            if (!partitionEditMode) return;
+            var handle = ev.target.closest(".partition-resize-handle");
+            if (!handle) return;
+            ev.stopPropagation();
+            ev.preventDefault();
+
+            var edge = handle.dataset.edge;
+            var idx = parseInt(handle.dataset.partitionIndex);
+            var part = tpl.partitions[idx];
+            if (!part) return;
+
+            var neighbor = findAdjacentPartition(tpl.partitions, part, edge);
+            if (!neighbor) return;
+
+            var MIN_SIZE = 2;
+            var startX = ev.clientX, startY = ev.clientY;
+            var origP = { x: part.x, y: part.y, w: part.w, h: part.h };
+            var origN = { x: neighbor.x, y: neighbor.y, w: neighbor.w, h: neighbor.h };
+
+            function onMove(e) {
+                var dxMm = (e.clientX - startX) / sc;
+                var dyMm = (e.clientY - startY) / sc;
+                var delta;
+                if (edge === "top") {
+                    delta = Math.max(-(origP.h - MIN_SIZE), Math.min(origN.h - MIN_SIZE, dyMm));
+                    delta = Math.round(delta * 10) / 10;
+                    part.y = origP.y + delta; part.h = origP.h - delta;
+                    neighbor.h = origN.h + delta;
+                } else if (edge === "bottom") {
+                    delta = Math.max(-(origP.h - MIN_SIZE), Math.min(origN.h - MIN_SIZE, dyMm));
+                    delta = Math.round(delta * 10) / 10;
+                    part.h = origP.h + delta;
+                    neighbor.y = origN.y + delta; neighbor.h = origN.h - delta;
+                } else if (edge === "left") {
+                    delta = Math.max(-(origP.w - MIN_SIZE), Math.min(origN.w - MIN_SIZE, dxMm));
+                    delta = Math.round(delta * 10) / 10;
+                    part.x = origP.x + delta; part.w = origP.w - delta;
+                    neighbor.w = origN.w + delta;
+                } else if (edge === "right") {
+                    delta = Math.max(-(origP.w - MIN_SIZE), Math.min(origN.w - MIN_SIZE, dxMm));
+                    delta = Math.round(delta * 10) / 10;
+                    part.w = origP.w + delta;
+                    neighbor.x = origN.x + delta; neighbor.w = origN.w - delta;
+                }
+                renderPartitionCanvas();
+            }
+            function onUp() {
+                document.removeEventListener("mousemove", onMove);
+                document.removeEventListener("mouseup", onUp);
+            }
+            document.addEventListener("mousemove", onMove);
+            document.addEventListener("mouseup", onUp);
+        });
+
+        canvas.addEventListener("mousedown", function (ev) {
+            if (ev.button !== 0 || partitionEditMode) return;
             startRectDraw(ev, canvas, sc);
         });
 
@@ -1007,9 +1064,10 @@
         }
 
         // Draw partitions
-        tpl.partitions.forEach(function (part) {
+        tpl.partitions.forEach(function (part, i) {
             var el = document.createElement("div");
             el.className = "partition-area";
+            el.dataset.partitionIndex = String(i);
             el.style.left = (part.x * sc) + "px";
             el.style.top = (part.y * sc) + "px";
             el.style.width = (part.w * sc) + "px";
@@ -1022,6 +1080,17 @@
             lbl.style.position = "relative";
             lbl.textContent = part.label + " (" + part.w.toFixed(1) + "x" + part.h.toFixed(1) + ")";
             el.appendChild(lbl);
+
+            // Resize handles (edit mode only)
+            if (partitionEditMode) {
+                ["top", "bottom", "left", "right"].forEach(function (edge) {
+                    var handle = document.createElement("div");
+                    handle.className = "partition-resize-handle resize-" + edge;
+                    handle.dataset.edge = edge;
+                    handle.dataset.partitionIndex = String(i);
+                    el.appendChild(handle);
+                });
+            }
 
             canvas.appendChild(el);
         });
@@ -1040,6 +1109,22 @@
             canvas.appendChild(foldLine);
         }
 
+        // Hover sync: canvas partitions -> list items
+        canvas.querySelectorAll(".partition-area").forEach(function (el) {
+            el.addEventListener("mouseenter", function () {
+                var idx = el.dataset.partitionIndex;
+                el.classList.add("highlight");
+                var li = document.querySelector("#partition-list .component-list-item[data-partition-index='" + idx + "']");
+                if (li) li.classList.add("highlight");
+            });
+            el.addEventListener("mouseleave", function () {
+                var idx = el.dataset.partitionIndex;
+                el.classList.remove("highlight");
+                var li = document.querySelector("#partition-list .component-list-item[data-partition-index='" + idx + "']");
+                if (li) li.classList.remove("highlight");
+            });
+        });
+
         preview.appendChild(canvas);
         renderPartitionList();
     }
@@ -1051,100 +1136,133 @@
         activePartitionTpl.partitions.forEach(function (p, i) {
             var div = document.createElement("div");
             div.className = "component-list-item";
-            div.textContent = (i + 1) + ". " + p.label + " (" + p.w.toFixed(1) + "x" + p.h.toFixed(1) + ")";
+            div.dataset.partitionIndex = String(i);
+
+            var span = document.createElement("span");
+            span.textContent = p.label + " (" + p.w.toFixed(1) + "x" + p.h.toFixed(1) + ")";
+            div.appendChild(span);
+
+            if (activePartitionTpl.partitions.length > 1) {
+                var btn = document.createElement("button");
+                btn.className = "delete-btn btn-outline";
+                btn.textContent = "\u00d7";
+                btn.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    removePartition(i);
+                });
+                div.appendChild(btn);
+            }
+
+            div.addEventListener("mouseenter", function () {
+                div.classList.add("highlight");
+                var ce = document.querySelector("#partition-preview .partition-area[data-partition-index='" + i + "']");
+                if (ce) ce.classList.add("highlight");
+            });
+            div.addEventListener("mouseleave", function () {
+                div.classList.remove("highlight");
+                var ce = document.querySelector("#partition-preview .partition-area[data-partition-index='" + i + "']");
+                if (ce) ce.classList.remove("highlight");
+            });
+
             list.appendChild(div);
         });
     }
 
     // Rectangle-draw partition system
-    function collectSnapPoints(tpl) {
-        var pts = [];
+    function collectSnapEdges(tpl) {
+        var xSet = {}, ySet = {};
         tpl.partitions.forEach(function (p) {
-            pts.push({x: p.x, y: p.y});
-            pts.push({x: p.x + p.w, y: p.y});
-            pts.push({x: p.x, y: p.y + p.h});
-            pts.push({x: p.x + p.w, y: p.y + p.h});
+            xSet[p.x] = true;
+            xSet[Math.round((p.x + p.w) * 10) / 10] = true;
+            ySet[p.y] = true;
+            ySet[Math.round((p.y + p.h) * 10) / 10] = true;
         });
         var pa = tpl.printingArea;
         if (pa) {
-            pts.push({x: pa.x, y: pa.y});
-            pts.push({x: pa.x + pa.w, y: pa.y});
-            pts.push({x: pa.x, y: pa.y + pa.h});
-            pts.push({x: pa.x + pa.w, y: pa.y + pa.h});
+            xSet[pa.x] = true;
+            xSet[Math.round((pa.x + pa.w) * 10) / 10] = true;
+            ySet[pa.y] = true;
+            ySet[Math.round((pa.y + pa.h) * 10) / 10] = true;
         }
-        var unique = [];
-        pts.forEach(function (p) {
-            var dup = unique.some(function (u) {
-                return Math.abs(u.x - p.x) < 0.01 && Math.abs(u.y - p.y) < 0.01;
-            });
-            if (!dup) unique.push(p);
-        });
-        return unique;
+        return {
+            xs: Object.keys(xSet).map(Number),
+            ys: Object.keys(ySet).map(Number)
+        };
     }
 
-    function snapToPoint(xMm, yMm, snapPoints, sc, thresholdPx) {
+    function snapToEdges(xMm, yMm, edges, sc, thresholdPx) {
         var threshMm = thresholdPx / sc;
-        var bestDist = threshMm;
-        var snapped = {x: xMm, y: yMm};
-        snapPoints.forEach(function (pt) {
-            var dist = Math.sqrt(Math.pow(pt.x - xMm, 2) + Math.pow(pt.y - yMm, 2));
-            if (dist < bestDist) {
-                bestDist = dist;
-                snapped = {x: pt.x, y: pt.y};
-            }
+        var sx = xMm, sy = yMm, snappedX = false, snappedY = false;
+        var bestDx = threshMm, bestDy = threshMm;
+        edges.xs.forEach(function (ex) {
+            var d = Math.abs(ex - xMm);
+            if (d < bestDx) { bestDx = d; sx = ex; snappedX = true; }
         });
-        return snapped;
+        edges.ys.forEach(function (ey) {
+            var d = Math.abs(ey - yMm);
+            if (d < bestDy) { bestDy = d; sy = ey; snappedY = true; }
+        });
+        return { x: sx, y: sy, snapped: snappedX || snappedY };
     }
 
-    function findContainingPartition(xMm, yMm, partitions) {
+    function findAdjacentPartition(partitions, current, edge) {
+        var EPSILON = 0.1;
+        var best = null;
+        var bestOverlap = 0;
         for (var i = 0; i < partitions.length; i++) {
             var p = partitions[i];
-            if (xMm >= p.x && xMm <= p.x + p.w && yMm >= p.y && yMm <= p.y + p.h) {
-                return p;
+            if (p === current) continue;
+            var edgeMatch = false, overlap = 0;
+            if (edge === "top" && Math.abs((p.y + p.h) - current.y) < EPSILON) {
+                edgeMatch = true;
+                overlap = Math.min(p.x + p.w, current.x + current.w) - Math.max(p.x, current.x);
+            } else if (edge === "bottom" && Math.abs(p.y - (current.y + current.h)) < EPSILON) {
+                edgeMatch = true;
+                overlap = Math.min(p.x + p.w, current.x + current.w) - Math.max(p.x, current.x);
+            } else if (edge === "left" && Math.abs((p.x + p.w) - current.x) < EPSILON) {
+                edgeMatch = true;
+                overlap = Math.min(p.y + p.h, current.y + current.h) - Math.max(p.y, current.y);
+            } else if (edge === "right" && Math.abs(p.x - (current.x + current.w)) < EPSILON) {
+                edgeMatch = true;
+                overlap = Math.min(p.y + p.h, current.y + current.h) - Math.max(p.y, current.y);
             }
+            if (edgeMatch && overlap > bestOverlap) { bestOverlap = overlap; best = p; }
         }
-        return null;
+        return best;
     }
 
-    function decomposePartition(parent, rect) {
-        var MIN_SIZE = 2;
-        var parts = [];
-        var P = parent;
-        var rx = rect.x, ry = rect.y, rw = rect.w, rh = rect.h;
+    function removePartition(index) {
+        var tpl = activePartitionTpl;
+        if (!tpl || tpl.partitions.length <= 1) return;
+        var removed = tpl.partitions[index];
+        var EPSILON = 0.1;
+        var bestNeighbor = null, bestLength = 0, bestEdge = null;
 
-        // Top strip
-        var topH = ry - P.y;
-        if (topH < MIN_SIZE) { rh += topH; ry = P.y; }
+        tpl.partitions.forEach(function (p) {
+            if (p === removed) return;
+            [["top", (p.y + p.h), removed.y, "x"],
+             ["bottom", p.y, (removed.y + removed.h), "x"],
+             ["left", (p.x + p.w), removed.x, "y"],
+             ["right", p.x, (removed.x + removed.w), "y"]
+            ].forEach(function (cfg) {
+                if (Math.abs(cfg[1] - cfg[2]) < EPSILON) {
+                    var overlap = (cfg[3] === "x")
+                        ? Math.min(p.x + p.w, removed.x + removed.w) - Math.max(p.x, removed.x)
+                        : Math.min(p.y + p.h, removed.y + removed.h) - Math.max(p.y, removed.y);
+                    if (overlap > bestLength) { bestLength = overlap; bestNeighbor = p; bestEdge = cfg[0]; }
+                }
+            });
+        });
 
-        // Bottom strip
-        var botH = (P.y + P.h) - (ry + rh);
-        if (botH < MIN_SIZE) { rh = (P.y + P.h) - ry; }
+        if (!bestNeighbor) return;
+        if (bestEdge === "top")    bestNeighbor.h += removed.h;
+        if (bestEdge === "bottom") { bestNeighbor.y = removed.y; bestNeighbor.h += removed.h; }
+        if (bestEdge === "left")   bestNeighbor.w += removed.w;
+        if (bestEdge === "right")  { bestNeighbor.x = removed.x; bestNeighbor.w += removed.w; }
 
-        // Left strip
-        var leftW = rx - P.x;
-        if (leftW < MIN_SIZE) { rw += leftW; rx = P.x; }
-
-        // Right strip
-        var rightW = (P.x + P.w) - (rx + rw);
-        if (rightW < MIN_SIZE) { rw = (P.x + P.w) - rx; }
-
-        // Recalculate after absorption
-        topH = ry - P.y;
-        botH = (P.y + P.h) - (ry + rh);
-        leftW = rx - P.x;
-        rightW = (P.x + P.w) - (rx + rw);
-
-        if (topH >= MIN_SIZE)
-            parts.push({label: "", x: P.x, y: P.y, w: P.w, h: topH});
-        if (leftW >= MIN_SIZE)
-            parts.push({label: "", x: P.x, y: ry, w: leftW, h: rh});
-        parts.push({label: "", x: rx, y: ry, w: rw, h: rh});
-        if (rightW >= MIN_SIZE)
-            parts.push({label: "", x: rx + rw, y: ry, w: rightW, h: rh});
-        if (botH >= MIN_SIZE)
-            parts.push({label: "", x: P.x, y: ry + rh, w: P.w, h: botH});
-
-        return parts;
+        tpl.partitions.splice(index, 1);
+        assignPartitionLabels(tpl.partitions);
+        renderPartitionCanvas();
     }
 
     function indexToLabel(i) {
@@ -1167,8 +1285,8 @@
         var rawXmm = (ev.clientX - canvasRect.left) / sc;
         var rawYmm = (ev.clientY - canvasRect.top) / sc;
 
-        var snapPoints = collectSnapPoints(tpl);
-        var start = snapToPoint(rawXmm, rawYmm, snapPoints, sc, 8);
+        var snapEdges = collectSnapEdges(tpl);
+        var start = snapToEdges(rawXmm, rawYmm, snapEdges, sc, 8);
 
         var pa = tpl.printingArea;
         if (!pa) return;
@@ -1189,7 +1307,7 @@
             tpl: tpl,
             bounds: { x: pa.x, y: pa.y, x2: pa.x + pa.w, y2: pa.y + pa.h },
             startMm: start,
-            snapPoints: snapPoints,
+            snapEdges: snapEdges,
             previewEl: previewEl,
             snapDot: snapDot
         };
@@ -1205,7 +1323,7 @@
         var rawXmm = Math.max(B.x, Math.min(B.x2, (e.clientX - s.canvasRect.left) / s.sc));
         var rawYmm = Math.max(B.y, Math.min(B.y2, (e.clientY - s.canvasRect.top) / s.sc));
 
-        var end = snapToPoint(rawXmm, rawYmm, s.snapPoints, s.sc, 8);
+        var end = snapToEdges(rawXmm, rawYmm, s.snapEdges, s.sc, 8);
         end.x = Math.max(B.x, Math.min(B.x2, end.x));
         end.y = Math.max(B.y, Math.min(B.y2, end.y));
 
@@ -1219,8 +1337,7 @@
         s.previewEl.style.width = ((x2 - x1) * s.sc) + "px";
         s.previewEl.style.height = ((y2 - y1) * s.sc) + "px";
 
-        var snapped = (Math.abs(end.x - rawXmm) > 0.01 || Math.abs(end.y - rawYmm) > 0.01);
-        if (snapped) {
+        if (end.snapped) {
             s.snapDot.style.display = "block";
             s.snapDot.style.left = (end.x * s.sc - 4) + "px";
             s.snapDot.style.top = (end.y * s.sc - 4) + "px";
@@ -1241,7 +1358,7 @@
         var B = s.bounds;
         var rawXmm = Math.max(B.x, Math.min(B.x2, (e.clientX - s.canvasRect.left) / s.sc));
         var rawYmm = Math.max(B.y, Math.min(B.y2, (e.clientY - s.canvasRect.top) / s.sc));
-        var end = snapToPoint(rawXmm, rawYmm, s.snapPoints, s.sc, 8);
+        var end = snapToEdges(rawXmm, rawYmm, s.snapEdges, s.sc, 8);
         end.x = Math.max(B.x, Math.min(B.x2, end.x));
         end.y = Math.max(B.y, Math.min(B.y2, end.y));
 
@@ -1253,36 +1370,9 @@
         rectDrawState = null;
         if (w < 2 || h < 2) return;
 
-        // Find parent by center of drawn rectangle
-        var cx = x1 + w / 2;
-        var cy = y1 + h / 2;
-        var parent = findContainingPartition(cx, cy, s.tpl.partitions);
-        if (!parent) return;
-
-        // Clamp rectangle to parent bounds
-        var px2 = parent.x + parent.w, py2 = parent.y + parent.h;
-        x1 = Math.max(parent.x, x1);
-        y1 = Math.max(parent.y, y1);
-        var ex = Math.min(px2, x1 + w);
-        var ey = Math.min(py2, y1 + h);
-        w = Math.round((ex - x1) * 10) / 10;
-        h = Math.round((ey - y1) * 10) / 10;
-        if (w < 2 || h < 2) return;
-
-        var newParts = decomposePartition(parent, {x: x1, y: y1, w: w, h: h});
-        var idx = s.tpl.partitions.indexOf(parent);
-        if (idx === -1) return;
-
-        var args = [idx, 1].concat(newParts);
-        Array.prototype.splice.apply(s.tpl.partitions, args);
+        s.tpl.partitions.push({label: "", x: x1, y: y1, w: w, h: h});
         assignPartitionLabels(s.tpl.partitions);
-
-        api("PUT", "/api/templates/" + s.tpl.id + "/partitions", {
-            partitions: s.tpl.partitions
-        }).then(function (resp) {
-            activePartitionTpl.partitions = resp.partitions;
-            renderPartitionCanvas();
-        });
+        renderPartitionCanvas();
     }
 
     // Background image paste
@@ -1367,6 +1457,26 @@
             activePartitionTpl.partitions = resp.partitions;
             renderPartitionCanvas();
         });
+    });
+
+    // Save partitions button
+    document.getElementById("btn-save-partitions").addEventListener("click", function () {
+        if (!activePartitionTpl) return;
+        var tpl = activePartitionTpl;
+        api("PUT", "/api/templates/" + tpl.id + "/partitions", {
+            partitions: tpl.partitions
+        }).then(function (resp) {
+            activePartitionTpl.partitions = resp.partitions;
+            renderPartitionCanvas();
+        });
+    });
+
+    // Edit mode toggle
+    document.getElementById("btn-edit-partitions").addEventListener("click", function () {
+        partitionEditMode = !partitionEditMode;
+        this.style.background = partitionEditMode ? "#000" : "";
+        this.style.color = partitionEditMode ? "#fff" : "";
+        renderPartitionCanvas();
     });
 
     /* ===== Template — Component (placeholder) ===== */
