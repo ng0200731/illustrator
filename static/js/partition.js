@@ -539,12 +539,17 @@
         partitionEditMode = !partitionEditMode;
         this.style.background = partitionEditMode ? "#000" : "";
         this.style.color = partitionEditMode ? "#fff" : "";
-        if (partitionEditMode && App.activePartitionTpl) {
+        document.getElementById("partition-preview").classList.toggle("edit-mode", partitionEditMode);
+        if (partitionEditMode && App.activePartitionTpl && !partitionSnapshot) {
             partitionSnapshot = JSON.parse(JSON.stringify(App.activePartitionTpl.partitions));
-        } else if (!partitionEditMode && partitionSnapshot && App.activePartitionTpl) {
-            App.activePartitionTpl.partitions = partitionSnapshot;
-            partitionSnapshot = null;
         }
         App.renderPartitionCanvas();
+    });
+
+    document.getElementById("btn-reset-edit-partitions").addEventListener("click", function () {
+        if (partitionSnapshot && App.activePartitionTpl) {
+            App.activePartitionTpl.partitions = JSON.parse(JSON.stringify(partitionSnapshot));
+            App.renderPartitionCanvas();
+        }
     });
 })();

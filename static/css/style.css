@@ -604,6 +604,10 @@ tbody tr:hover {
     overflow: visible;
 }
 
+#partition-preview.edit-mode {
+    border: 2px solid red;
+}
+
 .label-canvas .dotted-rect {
     position: absolute;
     border: 1px dashed #999;
