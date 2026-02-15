@@ -456,8 +456,8 @@
         var isUpdate = !!App.activePartitionTpl;
 
         if (isUpdate) {
-            // Preserve existing partitions when updating
-            tpl.partitions = App.activePartitionTpl.partitions;
+            // Use last-saved partitions, not live in-memory edits
+            tpl.partitions = App._getPartitionSnapshot() || App.activePartitionTpl.partitions;
             tpl.bgImage = App.activePartitionTpl.bgImage || "";
         } else {
             // New template: create default partitions

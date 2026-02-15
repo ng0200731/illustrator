@@ -8,6 +8,10 @@
     var partitionBgOpacity = 0.3;
     var rectDrawState = null;
     var partitionEditMode = false;
+    var partitionSnapshot = null;
+
+    /* Return last-saved partitions if unsaved edits are in progress */
+    App._getPartitionSnapshot = function () { return partitionSnapshot; };
 
     /* Helpers for template.js to set/clear bg from loadTemplateForEditing */
     App._setPartitionBg = function (img) {
@@ -260,37 +264,45 @@
             if (!part) return;
 
             var neighbor = findAdjacentPartition(tpl.partitions, part, edge);
-            if (!neighbor) return;
+            var pa = tpl.printingArea || App.calcPrintingArea(tpl);
 
             var MIN_SIZE = 2;
             var startX = ev.clientX, startY = ev.clientY;
             var origP = { x: part.x, y: part.y, w: part.w, h: part.h };
-            var origN = { x: neighbor.x, y: neighbor.y, w: neighbor.w, h: neighbor.h };
+            var origN = neighbor ? { x: neighbor.x, y: neighbor.y, w: neighbor.w, h: neighbor.h } : null;
 
             function onMove(e) {
                 var dxMm = (e.clientX - startX) / sc;
                 var dyMm = (e.clientY - startY) / sc;
                 var delta;
                 if (edge === "top") {
-                    delta = Math.max(-(origP.h - MIN_SIZE), Math.min(origN.h - MIN_SIZE, dyMm));
+                    delta = origN
+                        ? Math.max(-(origP.h - MIN_SIZE), Math.min(origN.h - MIN_SIZE, dyMm))
+                        : Math.max(-(origP.y - pa.y), Math.min(origP.h - MIN_SIZE, dyMm));
                     delta = Math.round(delta * 10) / 10;
                     part.y = origP.y + delta; part.h = origP.h - delta;
-                    neighbor.h = origN.h + delta;
+                    if (origN) neighbor.h = origN.h + delta;
                 } else if (edge === "bottom") {
-                    delta = Math.max(-(origP.h - MIN_SIZE), Math.min(origN.h - MIN_SIZE, dyMm));
+                    delta = origN
+                        ? Math.max(-(origP.h - MIN_SIZE), Math.min(origN.h - MIN_SIZE, dyMm))
+                        : Math.max(-(origP.h - MIN_SIZE), Math.min((pa.y + pa.h) - (origP.y + origP.h), dyMm));
                     delta = Math.round(delta * 10) / 10;
                     part.h = origP.h + delta;
-                    neighbor.y = origN.y + delta; neighbor.h = origN.h - delta;
+                    if (origN) { neighbor.y = origN.y + delta; neighbor.h = origN.h - delta; }
                 } else if (edge === "left") {
-                    delta = Math.max(-(origP.w - MIN_SIZE), Math.min(origN.w - MIN_SIZE, dxMm));
+                    delta = origN
+                        ? Math.max(-(origP.w - MIN_SIZE), Math.min(origN.w - MIN_SIZE, dxMm))
+                        : Math.max(-(origP.x - pa.x), Math.min(origP.w - MIN_SIZE, dxMm));
                     delta = Math.round(delta * 10) / 10;
                     part.x = origP.x + delta; part.w = origP.w - delta;
-                    neighbor.w = origN.w + delta;
+                    if (origN) neighbor.w = origN.w + delta;
                 } else if (edge === "right") {
-                    delta = Math.max(-(origP.w - MIN_SIZE), Math.min(origN.w - MIN_SIZE, dxMm));
+                    delta = origN
+                        ? Math.max(-(origP.w - MIN_SIZE), Math.min(origN.w - MIN_SIZE, dxMm))
+                        : Math.max(-(origP.w - MIN_SIZE), Math.min((pa.x + pa.w) - (origP.x + origP.w), dxMm));
                     delta = Math.round(delta * 10) / 10;
                     part.w = origP.w + delta;
-                    neighbor.x = origN.x + delta; neighbor.w = origN.w - delta;
+                    if (origN) { neighbor.x = origN.x + delta; neighbor.w = origN.w - delta; }
                 }
                 App.renderPartitionCanvas();
             }
@@ -509,6 +521,7 @@
         btn.textContent = "Saving...";
         App.api("PUT", "/api/templates/" + tpl.id + "/partitions", payload).then(function (resp) {
             App.activePartitionTpl.partitions = resp.partitions;
+            partitionSnapshot = null;
             App.renderPartitionCanvas();
             btn.textContent = "Saved!";
             setTimeout(function () {
@@ -526,6 +539,12 @@
         partitionEditMode = !partitionEditMode;
         this.style.background = partitionEditMode ? "#000" : "";
         this.style.color = partitionEditMode ? "#fff" : "";
+        if (partitionEditMode && App.activePartitionTpl) {
+            partitionSnapshot = JSON.parse(JSON.stringify(App.activePartitionTpl.partitions));
+        } else if (!partitionEditMode && partitionSnapshot && App.activePartitionTpl) {
+            App.activePartitionTpl.partitions = partitionSnapshot;
+            partitionSnapshot = null;
+        }
         App.renderPartitionCanvas();
     });
 })();
