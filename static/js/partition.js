@@ -6,6 +6,7 @@
     var partitionBgImage = null;
     var partitionBgVisible = true;
     var partitionBgOpacity = 0.3;
+    var partitionBgPage = 0;
     var rectDrawState = null;
     var partitionEditMode = false;
     var partitionSnapshot = null;
@@ -17,6 +18,7 @@
     App._setPartitionBg = function (img) {
         partitionBgImage = img;
         partitionBgVisible = true;
+        partitionBgPage = App.activePartitionPage;
         partitionBgOpacity = parseInt(document.getElementById("partition-bg-opacity").value) / 100;
         document.getElementById("partition-bg-controls").style.display = "";
     };
@@ -376,7 +378,7 @@
             startRectDraw(ev, canvas, sc);
         });
 
-        if (partitionBgImage) {
+        if (partitionBgImage && partitionBgPage === App.activePartitionPage) {
             var bgEl = document.createElement("img");
             bgEl.className = "partition-bg-img";
             bgEl.src = partitionBgImage.src;
@@ -504,6 +506,7 @@
                     img.onload = function () {
                         partitionBgImage = img;
                         partitionBgVisible = true;
+                        partitionBgPage = App.activePartitionPage;
                         partitionBgOpacity = parseInt(document.getElementById("partition-bg-opacity").value) / 100;
                         document.getElementById("partition-bg-controls").style.display = "";
                         App.renderPartitionCanvas();
@@ -565,24 +568,33 @@
         }).concat(newPagePartitions);
 
         App.api("PUT", "/api/templates/" + tpl.id + "/partitions", {
-            partitions: tpl.partitions
+            partitions: serializePartitions(tpl.partitions)
         }).then(function (resp) {
             App.activePartitionTpl.partitions = resp.partitions;
             App.renderPartitionCanvas();
         });
     });
 
+    function serializePartitions(parts) {
+        return parts.map(function (p) {
+            return { page: p.page || 0, label: p.label, x: p.x, y: p.y, w: p.w, h: p.h };
+        });
+    }
+
     document.getElementById("btn-save-partitions").addEventListener("click", function () {
         if (!App.activePartitionTpl) return;
         var btn = this;
         var tpl = App.activePartitionTpl;
+        var serialized = serializePartitions(tpl.partitions);
+        console.log("SAVE sending partitions:", JSON.stringify(serialized));
         var payload = {
-            partitions: tpl.partitions,
+            partitions: serialized,
             bgImage: partitionBgImage ? partitionBgImage.src : ""
         };
         btn.disabled = true;
         btn.textContent = "Saving...";
         App.api("PUT", "/api/templates/" + tpl.id + "/partitions", payload).then(function (resp) {
+            console.log("SAVE received partitions:", JSON.stringify(resp.partitions));
             App.activePartitionTpl.partitions = resp.partitions;
             partitionSnapshot = null;
             App.renderPartitionCanvas();
@@ -641,5 +653,10 @@
         assignPartitionLabelsForPage(tpl.partitions, newPageIndex);
         App.activePartitionPage = newPageIndex;
         App.renderPartitionCanvas();
+
+        /* Auto-save so the new page is persisted immediately */
+        App.api("PUT", "/api/templates/" + tpl.id + "/partitions", {
+            partitions: serializePartitions(tpl.partitions)
+        });
     });
 })();
