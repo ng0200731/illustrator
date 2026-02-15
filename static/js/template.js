@@ -563,6 +563,9 @@
 
     /* ===== Load template for editing ===== */
     App.loadTemplateForEditing = function (t) {
+        /* Restore unsaved edits on the previous template before switching */
+        App._restoreSavedPartitions();
+
         document.getElementById("tpl-customer").value = t.customerId || "";
         document.getElementById("tpl-name").value = t.name || "";
         document.getElementById("tpl-width").value = t.width || "";
@@ -611,21 +614,28 @@
                 /* backward compat: plain data URL → assign to page 0 */
                 if (t.bgImage.indexOf("data:") === 0) bgMap = { "0": t.bgImage };
             }
-            var pages = Object.keys(bgMap);
-            var loaded = 0;
-            pages.forEach(function (pg) {
-                var img = new Image();
-                img.onload = function () {
-                    App.activePartitionPage = parseInt(pg);
-                    App._setPartitionBg(img);
-                    loaded++;
-                    if (loaded === pages.length) {
-                        App.activePartitionPage = 0;
-                        App.renderPartitionCanvas();
-                    }
-                };
-                img.src = bgMap[pg];
-            });
+            /* Only load bg images for pages that still have partitions */
+            var existingPages = {};
+            t.partitions.forEach(function (p) { existingPages[p.page || 0] = true; });
+            var pages = Object.keys(bgMap).filter(function (pg) { return existingPages[parseInt(pg)]; });
+            if (pages.length === 0) {
+                App._clearPartitionBg();
+            } else {
+                var loaded = 0;
+                pages.forEach(function (pg) {
+                    var img = new Image();
+                    img.onload = function () {
+                        App.activePartitionPage = parseInt(pg);
+                        App._setPartitionBg(img);
+                        loaded++;
+                        if (loaded === pages.length) {
+                            App.activePartitionPage = 0;
+                            App.renderPartitionCanvas();
+                        }
+                    };
+                    img.src = bgMap[pg];
+                });
+            }
         } else {
             App._clearPartitionBg();
         }

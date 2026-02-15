@@ -14,6 +14,13 @@
     /* Return last-saved partitions if unsaved edits are in progress */
     App._getPartitionSnapshot = function () { return partitionSnapshot; };
 
+    /* Restore unsaved partition edits before switching away from a template */
+    App._restoreSavedPartitions = function () {
+        if (savedPartitions && App.activePartitionTpl) {
+            App.activePartitionTpl.partitions = JSON.parse(JSON.stringify(savedPartitions));
+        }
+    };
+
     /* Called when template is loaded for editing — captures the saved state */
     App._snapshotPartitions = function () {
         if (App.activePartitionTpl) {
@@ -104,10 +111,18 @@
             tab.className = "page-tab" + (i === App.activePartitionPage ? " active" : "");
             tab.textContent = pageLabel(i);
             tab.dataset.page = String(i);
+            var closeBtn = document.createElement("span");
+            closeBtn.className = "page-tab-close";
+            closeBtn.textContent = "\u00d7";
+            tab.appendChild(closeBtn);
             (function (idx) {
                 tab.addEventListener("click", function () {
                     App.activePartitionPage = idx;
                     App.renderPartitionCanvas();
+                });
+                closeBtn.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    removePage(idx);
                 });
             })(i);
             bar.appendChild(tab);
