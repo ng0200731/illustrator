@@ -25,9 +25,63 @@
         partitionBgVisible = true;
     };
 
+    /* ===== Page helpers ===== */
+    function getPagePartitions() {
+        if (!App.activePartitionTpl) return [];
+        return App.activePartitionTpl.partitions.filter(function (p) {
+            return (p.page || 0) === App.activePartitionPage;
+        });
+    }
+
+    function getPageCount() {
+        if (!App.activePartitionTpl) return 1;
+        var maxPage = 0;
+        App.activePartitionTpl.partitions.forEach(function (p) {
+            if ((p.page || 0) > maxPage) maxPage = p.page || 0;
+        });
+        return maxPage + 1;
+    }
+
+    function pageLabel(idx) {
+        var sheetNum = Math.floor(idx / 2) + 1;
+        var side = (idx % 2 === 0) ? "front" : "back";
+        return sheetNum + " (" + side + ")";
+    }
+
+    function assignPartitionLabelsForPage(partitions, pageIndex) {
+        var count = 0;
+        partitions.forEach(function (p) {
+            if ((p.page || 0) === pageIndex) {
+                p.label = indexToLabel(count);
+                count++;
+            }
+        });
+    }
+
+    function renderPageTabs() {
+        var bar = document.getElementById("page-tab-bar");
+        bar.innerHTML = "";
+        if (!App.activePartitionTpl) return;
+        var count = getPageCount();
+        for (var i = 0; i < count; i++) {
+            var tab = document.createElement("a");
+            tab.className = "page-tab" + (i === App.activePartitionPage ? " active" : "");
+            tab.textContent = pageLabel(i);
+            tab.dataset.page = String(i);
+            (function (idx) {
+                tab.addEventListener("click", function () {
+                    App.activePartitionPage = idx;
+                    App.renderPartitionCanvas();
+                });
+            })(i);
+            bar.appendChild(tab);
+        }
+    }
+
     function collectSnapEdges(tpl) {
         var xSet = {}, ySet = {};
         tpl.partitions.forEach(function (p) {
+            if ((p.page || 0) !== App.activePartitionPage) return;
             xSet[p.x] = true;
             xSet[Math.round((p.x + p.w) * 10) / 10] = true;
             ySet[p.y] = true;
@@ -64,6 +118,7 @@
         for (var i = 0; i < partitions.length; i++) {
             var p = partitions[i];
             if (p === current) continue;
+            if ((p.page || 0) !== (current.page || 0)) continue;
             var edgeMatch = false, overlap = 0;
             if (edge === "top" && Math.abs((p.y + p.h) - current.y) < EPSILON) {
                 edgeMatch = true;
@@ -85,13 +140,14 @@
 
     function removePartition(index) {
         var tpl = App.activePartitionTpl;
-        if (!tpl || tpl.partitions.length <= 1) return;
+        if (!tpl || getPagePartitions().length <= 1) return;
         var removed = tpl.partitions[index];
         var EPSILON = 0.1;
         var bestNeighbor = null, bestLength = 0, bestEdge = null;
 
         tpl.partitions.forEach(function (p) {
             if (p === removed) return;
+            if ((p.page || 0) !== (removed.page || 0)) return;
             [["top", (p.y + p.h), removed.y, "x"],
              ["bottom", p.y, (removed.y + removed.h), "x"],
              ["left", (p.x + p.w), removed.x, "y"],
@@ -113,7 +169,7 @@
         if (bestEdge === "right")  { bestNeighbor.x = removed.x; bestNeighbor.w += removed.w; }
 
         tpl.partitions.splice(index, 1);
-        assignPartitionLabels(tpl.partitions);
+        assignPartitionLabelsForPage(tpl.partitions, App.activePartitionPage);
         App.renderPartitionCanvas();
     }
 
@@ -203,8 +259,8 @@
         var h = Math.round((Math.max(s.startMm.y, end.y) - y1) * 10) / 10;
         rectDrawState = null;
         if (w < 2 || h < 2) return;
-        s.tpl.partitions.push({ label: "", x: x1, y: y1, w: w, h: h });
-        assignPartitionLabels(s.tpl.partitions);
+        s.tpl.partitions.push({ page: App.activePartitionPage, label: "", x: x1, y: y1, w: w, h: h });
+        assignPartitionLabelsForPage(s.tpl.partitions, App.activePartitionPage);
         App.renderPartitionCanvas();
     }
 
@@ -212,6 +268,7 @@
     App.renderPartitionCanvas = function () {
         var preview = document.getElementById("partition-preview");
         App.clearPreview(preview);
+        renderPageTabs();
         if (!App.activePartitionTpl) {
             preview.insertAdjacentHTML("beforeend", '<div class="preview-hint">Select a template to begin.</div>');
             return;
@@ -277,7 +334,7 @@
                 var delta;
                 if (edge === "top") {
                     delta = origN
-                        ? Math.max(-(origP.h - MIN_SIZE), Math.min(origN.h - MIN_SIZE, dyMm))
+                        ? Math.max(-(origN.h - MIN_SIZE), Math.min(origP.h - MIN_SIZE, dyMm))
                         : Math.max(-(origP.y - pa.y), Math.min(origP.h - MIN_SIZE, dyMm));
                     delta = Math.round(delta * 10) / 10;
                     part.y = origP.y + delta; part.h = origP.h - delta;
@@ -291,7 +348,7 @@
                     if (origN) { neighbor.y = origN.y + delta; neighbor.h = origN.h - delta; }
                 } else if (edge === "left") {
                     delta = origN
-                        ? Math.max(-(origP.w - MIN_SIZE), Math.min(origN.w - MIN_SIZE, dxMm))
+                        ? Math.max(-(origN.w - MIN_SIZE), Math.min(origP.w - MIN_SIZE, dxMm))
                         : Math.max(-(origP.x - pa.x), Math.min(origP.w - MIN_SIZE, dxMm));
                     delta = Math.round(delta * 10) / 10;
                     part.x = origP.x + delta; part.w = origP.w - delta;
@@ -329,6 +386,7 @@
         }
 
         tpl.partitions.forEach(function (part, i) {
+            if ((part.page || 0) !== App.activePartitionPage) return;
             var el = document.createElement("div");
             el.className = "partition-area";
             el.dataset.partitionIndex = String(i);
@@ -395,6 +453,7 @@
         list.innerHTML = "";
         if (!App.activePartitionTpl) return;
         App.activePartitionTpl.partitions.forEach(function (p, i) {
+            if ((p.page || 0) !== App.activePartitionPage) return;
             var div = document.createElement("div");
             div.className = "component-list-item";
             div.dataset.partitionIndex = String(i);
@@ -403,7 +462,7 @@
             span.textContent = p.label + " (" + p.w.toFixed(1) + "x" + p.h.toFixed(1) + ")";
             div.appendChild(span);
 
-            if (App.activePartitionTpl.partitions.length > 1) {
+            if (getPagePartitions().length > 1) {
                 var btn = document.createElement("button");
                 btn.className = "delete-btn btn-outline";
                 btn.textContent = "\u00d7";
@@ -483,26 +542,30 @@
         if (!App.activePartitionTpl) return;
         var tpl = App.activePartitionTpl;
         var pa = tpl.printingArea || App.calcPrintingArea(tpl);
-        var partitions = [];
+        var currentPage = App.activePartitionPage;
+        var newPagePartitions = [];
 
         if (tpl.folding && tpl.folding.type === "mid") {
             var fp = tpl.folding.padding || 0;
             if (tpl.orientation === "vertical") {
                 var halfH = tpl.height / 2;
-                partitions.push({ label: "Top", x: pa.x, y: pa.y, w: pa.w, h: halfH - fp - pa.y });
-                partitions.push({ label: "Bottom", x: pa.x, y: halfH + fp, w: pa.w, h: (pa.y + pa.h) - (halfH + fp) });
+                newPagePartitions.push({ page: currentPage, label: "Top", x: pa.x, y: pa.y, w: pa.w, h: halfH - fp - pa.y });
+                newPagePartitions.push({ page: currentPage, label: "Bottom", x: pa.x, y: halfH + fp, w: pa.w, h: (pa.y + pa.h) - (halfH + fp) });
             } else {
                 var halfW = tpl.width / 2;
-                partitions.push({ label: "Left", x: pa.x, y: pa.y, w: halfW - fp - pa.x, h: pa.h });
-                partitions.push({ label: "Right", x: halfW + fp, y: pa.y, w: (pa.x + pa.w) - (halfW + fp), h: pa.h });
+                newPagePartitions.push({ page: currentPage, label: "Left", x: pa.x, y: pa.y, w: halfW - fp - pa.x, h: pa.h });
+                newPagePartitions.push({ page: currentPage, label: "Right", x: halfW + fp, y: pa.y, w: (pa.x + pa.w) - (halfW + fp), h: pa.h });
             }
         } else {
-            partitions.push({ label: "Main", x: pa.x, y: pa.y, w: pa.w, h: pa.h });
+            newPagePartitions.push({ page: currentPage, label: "Main", x: pa.x, y: pa.y, w: pa.w, h: pa.h });
         }
 
-        App.activePartitionTpl.partitions = partitions;
+        tpl.partitions = tpl.partitions.filter(function (p) {
+            return (p.page || 0) !== currentPage;
+        }).concat(newPagePartitions);
+
         App.api("PUT", "/api/templates/" + tpl.id + "/partitions", {
-            partitions: partitions
+            partitions: tpl.partitions
         }).then(function (resp) {
             App.activePartitionTpl.partitions = resp.partitions;
             App.renderPartitionCanvas();
@@ -537,8 +600,7 @@
 
     document.getElementById("btn-edit-partitions").addEventListener("click", function () {
         partitionEditMode = !partitionEditMode;
-        this.style.background = partitionEditMode ? "#000" : "";
-        this.style.color = partitionEditMode ? "#fff" : "";
+        this.classList.toggle("active", partitionEditMode);
         document.getElementById("partition-preview").classList.toggle("edit-mode", partitionEditMode);
         if (partitionEditMode && App.activePartitionTpl && !partitionSnapshot) {
             partitionSnapshot = JSON.parse(JSON.stringify(App.activePartitionTpl.partitions));
@@ -551,5 +613,33 @@
             App.activePartitionTpl.partitions = JSON.parse(JSON.stringify(partitionSnapshot));
             App.renderPartitionCanvas();
         }
+    });
+
+    document.getElementById("btn-add-page").addEventListener("click", function () {
+        if (!App.activePartitionTpl) return;
+        var tpl = App.activePartitionTpl;
+        var newPageIndex = getPageCount();
+        var pa = tpl.printingArea || App.calcPrintingArea(tpl);
+        var newPartitions = [];
+
+        if (tpl.folding && tpl.folding.type === "mid") {
+            var fp = tpl.folding.padding || 0;
+            if (tpl.orientation === "vertical") {
+                var halfH = tpl.height / 2;
+                newPartitions.push({ page: newPageIndex, label: "", x: pa.x, y: pa.y, w: pa.w, h: halfH - fp - pa.y });
+                newPartitions.push({ page: newPageIndex, label: "", x: pa.x, y: halfH + fp, w: pa.w, h: (pa.y + pa.h) - (halfH + fp) });
+            } else {
+                var halfW = tpl.width / 2;
+                newPartitions.push({ page: newPageIndex, label: "", x: pa.x, y: pa.y, w: halfW - fp - pa.x, h: pa.h });
+                newPartitions.push({ page: newPageIndex, label: "", x: halfW + fp, y: pa.y, w: (pa.x + pa.w) - (halfW + fp), h: pa.h });
+            }
+        } else {
+            newPartitions.push({ page: newPageIndex, label: "", x: pa.x, y: pa.y, w: pa.w, h: pa.h });
+        }
+
+        tpl.partitions = tpl.partitions.concat(newPartitions);
+        assignPartitionLabelsForPage(tpl.partitions, newPageIndex);
+        App.activePartitionPage = newPageIndex;
+        App.renderPartitionCanvas();
     });
 })();

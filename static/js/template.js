@@ -466,15 +466,15 @@
                 var fp = tpl.folding.padding || 0;
                 if (tpl.orientation === "vertical") {
                     var halfH = tpl.height / 2;
-                    tpl.partitions.push({ label: "Top", x: tpl.printingArea.x, y: tpl.printingArea.y, w: tpl.printingArea.w, h: halfH - fp - tpl.printingArea.y });
-                    tpl.partitions.push({ label: "Bottom", x: tpl.printingArea.x, y: halfH + fp, w: tpl.printingArea.w, h: (tpl.printingArea.y + tpl.printingArea.h) - (halfH + fp) });
+                    tpl.partitions.push({ page: 0, label: "Top", x: tpl.printingArea.x, y: tpl.printingArea.y, w: tpl.printingArea.w, h: halfH - fp - tpl.printingArea.y });
+                    tpl.partitions.push({ page: 0, label: "Bottom", x: tpl.printingArea.x, y: halfH + fp, w: tpl.printingArea.w, h: (tpl.printingArea.y + tpl.printingArea.h) - (halfH + fp) });
                 } else {
                     var halfW = tpl.width / 2;
-                    tpl.partitions.push({ label: "Left", x: tpl.printingArea.x, y: tpl.printingArea.y, w: halfW - fp - tpl.printingArea.x, h: tpl.printingArea.h });
-                    tpl.partitions.push({ label: "Right", x: halfW + fp, y: tpl.printingArea.y, w: (tpl.printingArea.x + tpl.printingArea.w) - (halfW + fp), h: tpl.printingArea.h });
+                    tpl.partitions.push({ page: 0, label: "Left", x: tpl.printingArea.x, y: tpl.printingArea.y, w: halfW - fp - tpl.printingArea.x, h: tpl.printingArea.h });
+                    tpl.partitions.push({ page: 0, label: "Right", x: halfW + fp, y: tpl.printingArea.y, w: (tpl.printingArea.x + tpl.printingArea.w) - (halfW + fp), h: tpl.printingArea.h });
                 }
             } else {
-                tpl.partitions.push({ label: "Main", x: tpl.printingArea.x, y: tpl.printingArea.y, w: tpl.printingArea.w, h: tpl.printingArea.h });
+                tpl.partitions.push({ page: 0, label: "Main", x: tpl.printingArea.x, y: tpl.printingArea.y, w: tpl.printingArea.w, h: tpl.printingArea.h });
             }
         }
         var method = isUpdate ? "PUT" : "POST";
@@ -494,6 +494,7 @@
             App.switchToSubTab("tab-template-create", "tpl-partition");
             document.getElementById("partition-tpl-name").textContent = saved.name;
             App.activePartitionTpl = saved;
+            App.activePartitionPage = 0;
             requestAnimationFrame(function () { App.renderPartitionCanvas(); });
         });
     });
@@ -600,6 +601,7 @@
         }
 
         App.activePartitionTpl = t;
+        App.activePartitionPage = 0;
 
         if (t.bgImage) {
             var img = new Image();

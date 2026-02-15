@@ -269,9 +269,9 @@
                                 <span id="partition-tpl-name" class="tpl-name-display"></span>
                                 <p class="hint">Click and drag inside a partition to subdivide. Paste an image for reference.</p>
                                 <button type="button" class="btn-icon" id="btn-reset-partitions" title="Reset all partitions"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 2l12 12M14 2L2 14"/></svg></button>
-                                <button type="button" id="btn-save-partitions" style="font-size:11px;padding:2px 8px;margin-left:4px">Save</button>
-                                <button type="button" id="btn-edit-partitions" style="font-size:11px;padding:2px 8px;margin-left:4px">Edit</button>
-                                <button type="button" id="btn-reset-edit-partitions" style="font-size:11px;padding:2px 8px;margin-left:4px">Reset</button>
+                                <button type="button" class="partition-action-btn" id="btn-save-partitions">Save</button>
+                                <button type="button" class="partition-action-btn" id="btn-edit-partitions">Edit</button>
+                                <button type="button" class="partition-action-btn" id="btn-reset-edit-partitions">Reset</button>
                                 <div id="partition-bg-controls" style="display:none">
                                     <label style="font-size:11px">Background</label>
                                     <div class="input-row" style="align-items:center;gap:4px;margin:4px 0">
@@ -283,9 +283,13 @@
                                 </div>
                                 <div id="partition-list"></div>
                             </div>
-                            <div class="template-preview" id="partition-preview">
-                                <button type="button" class="btn-fit" title="Fit to view"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M2 2h4V0H0v6h2V2zm8-2v2h4v4h2V0h-6zm4 14h-4v2h6v-6h-2v4zM2 10H0v6h6v-2H2v-4z" fill="currentColor"/></svg></button>
-                                <div class="preview-hint">Select a template.</div>
+                            <div style="display:flex;flex-direction:column;flex:1;min-height:0">
+                                <div class="page-tab-bar" id="page-tab-bar"></div>
+                                <div class="template-preview" id="partition-preview">
+                                    <button type="button" class="btn-fit" title="Fit to view"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M2 2h4V0H0v6h2V2zm8-2v2h4v4h2V0h-6zm4 14h-4v2h6v-6h-2v4zM2 10H0v6h6v-2H2v-4z" fill="currentColor"/></svg></button>
+                                    <div class="preview-hint">Select a template.</div>
+                                </div>
+                                <button type="button" class="partition-action-btn" id="btn-add-page" style="align-self:flex-start;margin-top:6px">+ page</button>
                             </div>
                         </div>
                     </div>

@@ -11,6 +11,7 @@
 
         /* Shared state */
         activePartitionTpl: null,
+        activePartitionPage: 0,
 
         /* API helper */
         api: function (method, url, body) {

@@ -608,6 +608,48 @@ tbody tr:hover {
     border: 2px solid red;
 }
 
+.page-tab-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 6px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.page-tab {
+    padding: 3px 10px;
+    font-size: 11px;
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid #000;
+    background: #fff;
+    color: #000;
+}
+
+.page-tab:hover {
+    background: #eee;
+}
+
+.page-tab.active {
+    background: #000;
+    color: #fff;
+}
+
+.partition-action-btn {
+    font-size: 11px;
+    padding: 2px 8px;
+    margin-left: 4px;
+    background: #fff;
+    color: #000;
+    border: 1px solid #000;
+    cursor: pointer;
+}
+.partition-action-btn:hover,
+.partition-action-btn.active {
+    background: #000;
+    color: #fff;
+}
+
 .label-canvas .dotted-rect {
     position: absolute;
     border: 1px dashed #999;
