@@ -58,6 +58,39 @@
         });
     }
 
+    function removePage(pageIdx) {
+        var tpl = App.activePartitionTpl;
+        if (!tpl || getPageCount() <= 1) return;
+        if (!confirm("Delete page " + pageLabel(pageIdx) + " and all its partitions?")) return;
+
+        /* Remove partitions on this page */
+        tpl.partitions = tpl.partitions.filter(function (p) {
+            return (p.page || 0) !== pageIdx;
+        });
+        /* Shift higher pages down by 1 */
+        tpl.partitions.forEach(function (p) {
+            if ((p.page || 0) > pageIdx) p.page = (p.page || 0) - 1;
+        });
+        /* Remove bg image for this page, shift higher ones */
+        var newBg = {};
+        Object.keys(partitionBgImages).forEach(function (pg) {
+            var n = parseInt(pg);
+            if (n < pageIdx) newBg[n] = partitionBgImages[n];
+            else if (n > pageIdx) newBg[n - 1] = partitionBgImages[n];
+        });
+        partitionBgImages = newBg;
+
+        if (App.activePartitionPage >= getPageCount()) {
+            App.activePartitionPage = getPageCount() - 1;
+        }
+        App.renderPartitionCanvas();
+
+        /* Persist */
+        App.api("PUT", "/api/templates/" + tpl.id + "/partitions", {
+            partitions: serializePartitions(tpl.partitions)
+        });
+    }
+
     function renderPageTabs() {
         var bar = document.getElementById("page-tab-bar");
         bar.innerHTML = "";
@@ -68,6 +101,18 @@
             tab.className = "page-tab" + (i === App.activePartitionPage ? " active" : "");
             tab.textContent = pageLabel(i);
             tab.dataset.page = String(i);
+            if (count > 1) {
+                var closeBtn = document.createElement("span");
+                closeBtn.className = "page-tab-close";
+                closeBtn.textContent = "\u00d7";
+                (function (idx) {
+                    closeBtn.addEventListener("click", function (e) {
+                        e.stopPropagation();
+                        removePage(idx);
+                    });
+                })(i);
+                tab.appendChild(closeBtn);
+            }
             (function (idx) {
                 tab.addEventListener("click", function () {
                     App.activePartitionPage = idx;
@@ -141,6 +186,7 @@
     function removePartition(index) {
         var tpl = App.activePartitionTpl;
         if (!tpl || getPagePartitions().length <= 1) return;
+        if (!confirm("Delete this partition?")) return;
         var removed = tpl.partitions[index];
         var EPSILON = 0.1;
         var bestNeighbor = null, bestLength = 0, bestEdge = null;
@@ -162,11 +208,12 @@
             });
         });
 
-        if (!bestNeighbor) return;
-        if (bestEdge === "top")    bestNeighbor.h += removed.h;
-        if (bestEdge === "bottom") { bestNeighbor.y = removed.y; bestNeighbor.h += removed.h; }
-        if (bestEdge === "left")   bestNeighbor.w += removed.w;
-        if (bestEdge === "right")  { bestNeighbor.x = removed.x; bestNeighbor.w += removed.w; }
+        if (bestNeighbor) {
+            if (bestEdge === "top")    bestNeighbor.h += removed.h;
+            if (bestEdge === "bottom") { bestNeighbor.y = removed.y; bestNeighbor.h += removed.h; }
+            if (bestEdge === "left")   bestNeighbor.w += removed.w;
+            if (bestEdge === "right")  { bestNeighbor.x = removed.x; bestNeighbor.w += removed.w; }
+        }
 
         tpl.partitions.splice(index, 1);
         assignPartitionLabelsForPage(tpl.partitions, App.activePartitionPage);

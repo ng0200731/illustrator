@@ -635,6 +635,27 @@ tbody tr:hover {
     color: #fff;
 }
 
+.page-tab-close {
+    display: none;
+    margin-left: 6px;
+    font-size: 13px;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.page-tab:hover .page-tab-close {
+    display: inline;
+}
+
+.page-tab.active .page-tab-close:hover {
+    color: #aaa;
+}
+
+.page-tab:not(.active) .page-tab-close:hover {
+    color: #f00;
+}
+
 .partition-action-btn {
     font-size: 11px;
     padding: 2px 8px;
