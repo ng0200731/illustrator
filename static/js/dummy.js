@@ -65,7 +65,7 @@
             document.querySelectorAll(".line-type-btn").forEach(function (b) {
                 b.classList.toggle("active", b.dataset.linetype === lineType);
             });
-            document.getElementById("fields-sewing").classList.toggle("hidden", lineType !== "sewing");
+            document.getElementById("fields-sewing").classList.remove("hidden");
             document.getElementById("fields-fold").classList.toggle("hidden", lineType !== "fold");
             document.getElementById("tpl-sew-position").value = App.rand(["top", "left"]);
             document.getElementById("tpl-sew-distance").value = App.rand([8, 10, 12]);

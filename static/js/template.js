@@ -224,9 +224,7 @@
         padRect.style.height = (pa.h * tplScale) + "px";
         canvas.appendChild(padRect);
 
-        if (tpl.sewing.position !== "none" && tpl.sewing.distance > 0) {
-            var sewLine = document.createElement("div");
-            sewLine.className = "sewing-line solid";
+        if (tpl.folding.type !== "mid" && tpl.sewing.position !== "none" && tpl.sewing.distance > 0) {
             if (tpl.sewing.position === "top") {
                 sewLine.classList.add("horizontal");
                 sewLine.style.top = (tpl.sewing.distance * tplScale) + "px";
@@ -335,7 +333,7 @@
 
             if (tpl.folding.padding > 0) {
                 var fp = tpl.folding.padding;
-                if (tpl.orientation === "vertical") {
+                if (foldPos === "top" || foldPos === "bottom") {
                     var fl1 = document.createElement("div");
                     fl1.className = "fold-line horizontal";
                     fl1.style.top = ((foldAt - fp) * tplScale) + "px";
