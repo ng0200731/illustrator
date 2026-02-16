@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(py -c \"from app import app; print\\(''App OK''\\)\")",
-      "mcp__memory__read_graph"
+      "mcp__memory__read_graph",
+      "WebFetch(domain:cdn.jsdelivr.net)",
+      "WebFetch(domain:data.jsdelivr.com)",
+      "Bash(node -e:*)"
     ]
   }
 }

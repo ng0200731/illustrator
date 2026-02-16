@@ -58,3 +58,19 @@ CREATE TABLE IF NOT EXISTS partitions (
     h REAL NOT NULL,
     locked INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS components (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    template_id INTEGER NOT NULL REFERENCES templates(id) ON DELETE CASCADE,
+    partition_id INTEGER REFERENCES partitions(id) ON DELETE SET NULL,
+    page INTEGER NOT NULL DEFAULT 0,
+    type TEXT NOT NULL CHECK(type IN ('text','paragraph','barcode','qrcode','image')),
+    content TEXT DEFAULT '',
+    x REAL NOT NULL DEFAULT 0,
+    y REAL NOT NULL DEFAULT 0,
+    w REAL NOT NULL DEFAULT 20,
+    h REAL NOT NULL DEFAULT 10,
+    font_family TEXT DEFAULT 'Arial',
+    font_size REAL DEFAULT 8,
+    sort_order INTEGER DEFAULT 0
+);

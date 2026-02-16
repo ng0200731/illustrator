@@ -594,18 +594,6 @@
         });
     };
 
-    /* ===== Component placeholder ===== */
-    document.getElementById("comp-tpl-select").addEventListener("change", function () {
-        var id = parseInt(this.value);
-        var tpl = App.store.templates.find(function (t) { return t.id === id; }) || null;
-        var preview = document.getElementById("component-preview");
-        if (!tpl) {
-            preview.innerHTML = '<div class="preview-hint">Select a template to begin.</div>';
-            return;
-        }
-        preview.innerHTML = '<div class="preview-hint">Component drag-drop — details to follow.</div>';
-    });
-
     /* ===== Load template for editing ===== */
     App.loadTemplateForEditing = function (t) {
         /* Restore unsaved edits on the previous template before switching */

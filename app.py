@@ -26,7 +26,7 @@ def get_db():
     return conn
 
 
-def _template_to_dict(row, partitions):
+def _template_to_dict(row, partitions, components=None):
     return {
         "id": row["id"],
         "customerId": row["customer_id"],
@@ -50,7 +50,7 @@ def _template_to_dict(row, partitions):
             "w": row["print_w"], "h": row["print_h"]
         },
         "partitions": [dict(p) for p in partitions],
-        "components": [],
+        "components": [dict(c) for c in (components or [])],
         "bgImage": row["bg_image"] or ""
     }
 
@@ -93,6 +93,30 @@ else:
         _mc.close()
     except Exception as e:
         print(f"Locked migration failed: {e}")
+    # Migrate: create components table if missing
+    try:
+        _mc = sqlite3.connect(DB_PATH)
+        _tables = [r[0] for r in _mc.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+        if "components" not in _tables:
+            _mc.execute("""CREATE TABLE IF NOT EXISTS components (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                template_id INTEGER NOT NULL REFERENCES templates(id) ON DELETE CASCADE,
+                partition_id INTEGER REFERENCES partitions(id) ON DELETE SET NULL,
+                page INTEGER NOT NULL DEFAULT 0,
+                type TEXT NOT NULL CHECK(type IN ('text','paragraph','barcode','qrcode','image')),
+                content TEXT DEFAULT '',
+                x REAL NOT NULL DEFAULT 0,
+                y REAL NOT NULL DEFAULT 0,
+                w REAL NOT NULL DEFAULT 20,
+                h REAL NOT NULL DEFAULT 10,
+                font_family TEXT DEFAULT 'Arial',
+                font_size REAL DEFAULT 8,
+                sort_order INTEGER DEFAULT 0
+            )""")
+            _mc.commit()
+        _mc.close()
+    except Exception as e:
+        print(f"Components migration failed: {e}")
 
 
 @app.route("/")
@@ -229,7 +253,11 @@ def api_get_templates():
             "SELECT * FROM partitions WHERE template_id=? ORDER BY id",
             (r["id"],)
         ).fetchall()
-        result.append(_template_to_dict(r, parts))
+        comps = db.execute(
+            "SELECT * FROM components WHERE template_id=? ORDER BY page, sort_order",
+            (r["id"],)
+        ).fetchall()
+        result.append(_template_to_dict(r, parts, comps))
     db.close()
     return jsonify(result)
 
@@ -353,6 +381,47 @@ def api_update_partitions(tid):
     bg = row["bg_image"] if row else ""
     db.close()
     return jsonify({"partitions": parts_out, "bgImage": bg or ""})
+
+
+# ==================== Component API ====================
+
+@app.route("/api/templates/<int:tid>/components", methods=["GET"])
+def api_get_components(tid):
+    db = get_db()
+    rows = db.execute(
+        "SELECT * FROM components WHERE template_id=? ORDER BY page, sort_order",
+        (tid,)
+    ).fetchall()
+    db.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route("/api/templates/<int:tid>/components", methods=["PUT"])
+def api_save_components(tid):
+    d = request.get_json()
+    db = get_db()
+    db.execute("DELETE FROM components WHERE template_id=?", (tid,))
+    out = []
+    for i, c in enumerate(d.get("components", [])):
+        cur = db.execute(
+            """INSERT INTO components
+               (template_id, partition_id, page, type, content, x, y, w, h,
+                font_family, font_size, sort_order)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (tid, c.get("partitionId"), c.get("page", 0), c["type"],
+             c.get("content", ""), c["x"], c["y"], c["w"], c["h"],
+             c.get("fontFamily", "Arial"), c.get("fontSize", 8), i)
+        )
+        out.append({"id": cur.lastrowid, "template_id": tid,
+                     "partition_id": c.get("partitionId"),
+                     "page": c.get("page", 0), "type": c["type"],
+                     "content": c.get("content", ""),
+                     "x": c["x"], "y": c["y"], "w": c["w"], "h": c["h"],
+                     "font_family": c.get("fontFamily", "Arial"),
+                     "font_size": c.get("fontSize", 8), "sort_order": i})
+    db.commit()
+    db.close()
+    return jsonify(out)
 
 
 @app.route("/export/pdf", methods=["POST"])

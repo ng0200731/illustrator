@@ -802,7 +802,7 @@ tbody tr:hover {
     position: absolute;
     border: 1px dashed #999;
     cursor: pointer;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .canvas-component:hover {
@@ -811,6 +811,35 @@ tbody tr:hover {
 
 .canvas-component.selected {
     border: 2px solid #000;
+}
+
+.canvas-component.comp-pdfpath {
+    border: none;
+}
+.canvas-component.comp-pdfpath:hover {
+    outline: 1px solid #09f;
+}
+.canvas-component.comp-pdfpath.selected {
+    outline: 2px solid #09f;
+    border: none;
+}
+
+.pdf-selection {
+    position: absolute;
+    border: 2px dashed #f00;
+    background: rgba(255, 0, 0, 0.08);
+    pointer-events: none;
+}
+
+.resize-handle {
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+    width: 8px;
+    height: 8px;
+    background: #000;
+    cursor: nwse-resize;
+    z-index: 10;
 }
 
 .canvas-component .comp-content {
@@ -864,6 +893,31 @@ tbody tr:hover {
     padding: 1px 6px;
     font-size: 11px;
     margin: 0;
+}
+
+/* ===== Component Editor ===== */
+.partition-ref {
+    position: absolute;
+    border: 1px dashed #ccc;
+    pointer-events: none;
+}
+
+.label-canvas.drop-hover {
+    outline: 2px dashed #000;
+    outline-offset: -2px;
+}
+
+.comp-edit-input {
+    width: 100%;
+    height: 100%;
+    border: none;
+    outline: none;
+    font-size: inherit;
+    font-family: inherit;
+    padding: inherit;
+    resize: none;
+    background: rgba(255,255,255,0.9);
+    box-sizing: border-box;
 }
 
 .section-title {

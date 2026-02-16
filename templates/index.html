@@ -285,7 +285,7 @@
                                 <div class="page-tab-bar" id="page-tab-bar"></div>
                                 <div class="template-preview" id="partition-preview">
                                     <button type="button" class="btn-fit" title="Fit to view"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M2 2h4V0H0v6h2V2zm8-2v2h4v4h2V0h-6zm4 14h-4v2h6v-6h-2v4zM2 10H0v6h6v-2H2v-4z" fill="currentColor"/></svg></button>
-                                    <div class="preview-hint">Select a template.</div>
+                                    <div class="preview-hint">Select a template or drop a PDF.</div>
                                 </div>
                                 <button type="button" class="partition-action-btn" id="btn-add-page" style="align-self:flex-start;margin-top:6px">+ page</button>
                             </div>
@@ -298,6 +298,11 @@
                             <div class="template-form" style="width:200px">
                                 <label for="comp-tpl-select">Template</label>
                                 <select id="comp-tpl-select"></select>
+                                <div style="margin-top:8px">
+                                    <label class="btn" style="cursor:pointer;display:inline-block">Load PDF<input type="file" id="comp-pdf-input" accept=".pdf" style="display:none"></label>
+                                    <button id="btn-comp-clear" class="btn">Clear</button>
+                                </div>
+                                <div id="comp-page-tabs" class="page-tab-bar"></div>
                                 <h3 class="section-title">Components</h3>
                                 <div class="component-item" draggable="true" data-type="text">Text</div>
                                 <div class="component-item" draggable="true" data-type="paragraph">Paragraph</div>
@@ -305,9 +310,20 @@
                                 <div class="component-item" draggable="true" data-type="qrcode">QR Code</div>
                                 <h3 class="section-title">Placed</h3>
                                 <div id="comp-placed-list" class="component-list"></div>
+                                <div class="form-actions" style="margin-top:12px">
+                                    <button id="btn-comp-save" class="btn">Save</button>
+                                    <button id="btn-comp-reset" class="btn">Reset</button>
+                                </div>
+                                <h3 class="section-title">Export</h3>
+                                <div class="form-actions">
+                                    <button id="btn-export-pdf" class="btn">PDF</button>
+                                    <button id="btn-export-ai" class="btn">AI Editable</button>
+                                    <button id="btn-export-ai-outlined" class="btn">AI Outlined</button>
+                                </div>
                             </div>
                             <div class="template-preview" id="component-preview">
-                                <div class="preview-hint">Select a template.</div>
+                                <button class="btn-fit" id="btn-comp-fit" title="Fit">⊡</button>
+                                <div class="preview-hint">Select a template or drop a PDF.</div>
                             </div>
                         </div>
                     </div>
@@ -358,12 +374,17 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";</script>
     <script src="/static/js/core.js"></script>
     <script src="/static/js/nav.js"></script>
     <script src="/static/js/customer.js"></script>
     <script src="/static/js/supplier.js"></script>
     <script src="/static/js/template.js"></script>
     <script src="/static/js/partition.js"></script>
+    <script src="/static/js/component.js"></script>
     <script src="/static/js/dummy.js"></script>
     <script src="/static/js/init.js"></script>
 </body>

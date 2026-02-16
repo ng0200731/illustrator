@@ -33,6 +33,17 @@ def generate_pdf(data, output_path):
 
     c = pdf_canvas.Canvas(output_path, pagesize=(page_w, page_h))
 
+    # Draw PDF background if present
+    pdf_bg = data.get("pdfBackground")
+    if pdf_bg:
+        try:
+            header, b64_data = pdf_bg.split(",", 1)
+            img_bytes = base64.b64decode(b64_data)
+            img = ImageReader(io.BytesIO(img_bytes))
+            c.drawImage(img, 0, 0, width=page_w, height=page_h)
+        except Exception:
+            pass
+
     # Draw label border
     c.setStrokeColorRGB(0, 0, 0)
     c.setLineWidth(0.5)
@@ -46,12 +57,55 @@ def generate_pdf(data, output_path):
         w = comp.get("width", 0) * mm
         h = comp.get("height", 0) * mm
 
-        if comp_type in ("text", "paragraph"):
+        if comp_type == "pdfpath":
+            _draw_pdfpath(c, comp, page_h)
+        elif comp_type in ("text", "paragraph"):
             _draw_text(c, comp, x, y, w, h)
         elif comp_type == "image":
             _draw_image(c, comp, x, y, w, h)
+        elif comp_type == "barcode":
+            _draw_barcode(c, comp, x, y, w, h)
+        elif comp_type == "qrcode":
+            _draw_qrcode(c, comp, x, y, w, h)
 
     c.save()
+
+
+def _draw_pdfpath(c, comp, page_h):
+    """Draw a vector path object extracted from a PDF."""
+    path_data = comp.get("pathData", {})
+    ops = path_data.get("ops", [])
+    fill = path_data.get("fill")
+    stroke = path_data.get("stroke")
+    lw = path_data.get("lw", 0.5)
+
+    if not ops:
+        return
+
+    p = c.beginPath()
+    for op in ops:
+        o = op.get("o", "")
+        a = op.get("a", [])
+        if o == "M" and len(a) >= 2:
+            p.moveTo(a[0] * mm, page_h - a[1] * mm)
+        elif o == "L" and len(a) >= 2:
+            p.lineTo(a[0] * mm, page_h - a[1] * mm)
+        elif o == "C" and len(a) >= 6:
+            p.curveTo(a[0]*mm, page_h-a[1]*mm, a[2]*mm, page_h-a[3]*mm, a[4]*mm, page_h-a[5]*mm)
+        elif o == "Z":
+            p.close()
+
+    do_fill = 0
+    do_stroke = 0
+    if fill:
+        c.setFillColorRGB(fill[0], fill[1], fill[2])
+        do_fill = 1
+    if stroke:
+        c.setStrokeColorRGB(stroke[0], stroke[1], stroke[2])
+        c.setLineWidth(lw * mm)
+        do_stroke = 1
+
+    c.drawPath(p, fill=do_fill, stroke=do_stroke)
 
 
 def _draw_text(c, comp, x, y, w, h):
@@ -141,3 +195,45 @@ def _draw_image(c, comp, x, y, w, h):
         c.setLineWidth(0.25)
         c.rect(x, y - h, w, h)
         c.drawString(x + 1 * mm, y - h / 2, "[image]")
+
+
+def _draw_barcode(c, comp, x, y, w, h):
+    """Render barcode using python-barcode."""
+    content = comp.get("content", "123456")
+    try:
+        import barcode as barcode_lib
+        from barcode.writer import ImageWriter
+        code = barcode_lib.get("code128", content, writer=ImageWriter())
+        buf = io.BytesIO()
+        code.write(buf, options={"write_text": False, "module_width": 0.2,
+                                  "module_height": float(h / mm * 0.8)})
+        buf.seek(0)
+        img = ImageReader(buf)
+        c.drawImage(img, x, y - h, width=w, height=h, preserveAspectRatio=True)
+    except Exception:
+        c.setStrokeColorRGB(0, 0, 0)
+        c.setLineWidth(0.25)
+        c.rect(x, y - h, w, h)
+        c.setFont("Helvetica", 6)
+        c.drawString(x + 1 * mm, y - h / 2, "[barcode]")
+
+
+def _draw_qrcode(c, comp, x, y, w, h):
+    """Render QR code using qrcode package."""
+    content = comp.get("content", "https://example.com")
+    try:
+        import qrcode
+        qr = qrcode.make(content, box_size=10, border=0)
+        buf = io.BytesIO()
+        qr.save(buf, format="PNG")
+        buf.seek(0)
+        img = ImageReader(buf)
+        size = min(w, h)
+        c.drawImage(img, x, y - size, width=size, height=size, preserveAspectRatio=True)
+    except Exception:
+        c.setStrokeColorRGB(0, 0, 0)
+        c.setLineWidth(0.25)
+        size = min(w, h)
+        c.rect(x, y - size, size, size)
+        c.setFont("Helvetica", 6)
+        c.drawString(x + 1 * mm, y - size / 2, "[qr]")

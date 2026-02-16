@@ -10,6 +10,7 @@
         App.store.customers = results[0];
         App.store.suppliers = results[1];
         App.store.templates = results[2];
+        if (App.initComponentEditor) App.initComponentEditor();
         App.showSection("welcome");
     }).catch(function (err) {
         console.error("Failed to load data:", err);
