@@ -639,6 +639,7 @@
         App.activePartitionPage = 0;
         App._snapshotPartitions();
 
+        App._clearPartitionBg();
         if (t.bgImage) {
             var bgMap = {};
             try { bgMap = JSON.parse(t.bgImage); } catch (e) {
@@ -656,19 +657,13 @@
                 pages.forEach(function (pg) {
                     var img = new Image();
                     img.onload = function () {
-                        App.activePartitionPage = parseInt(pg);
-                        App._setPartitionBg(img);
+                        App._setPartitionBg(img, parseInt(pg));
                         loaded++;
-                        if (loaded === pages.length) {
-                            App.activePartitionPage = 0;
-                            App.renderPartitionCanvas();
-                        }
+                        if (loaded === pages.length) App.renderPartitionCanvas();
                     };
                     img.src = bgMap[pg];
                 });
             }
-        } else {
-            App._clearPartitionBg();
         }
 
         var sec = document.getElementById("section-template");

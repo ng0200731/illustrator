@@ -339,8 +339,10 @@ def api_update_partitions(tid):
                           "label": p["label"], "x": p["x"], "y": p["y"],
                           "w": p["w"], "h": p["h"]})
     db.commit()
+    row = db.execute("SELECT bg_image FROM templates WHERE id=?", (tid,)).fetchone()
+    bg = row["bg_image"] if row else ""
     db.close()
-    return jsonify({"partitions": parts_out})
+    return jsonify({"partitions": parts_out, "bgImage": bg or ""})
 
 
 @app.route("/export/pdf", methods=["POST"])

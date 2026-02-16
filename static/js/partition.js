@@ -29,8 +29,9 @@
     };
 
     /* Helpers for template.js to set/clear bg from loadTemplateForEditing */
-    App._setPartitionBg = function (img) {
-        partitionBgImages[App.activePartitionPage] = img;
+    App._setPartitionBg = function (img, page) {
+        var p = (typeof page === "number") ? page : App.activePartitionPage;
+        partitionBgImages[p] = img;
         partitionBgVisible = true;
         partitionBgOpacity = parseInt(document.getElementById("partition-bg-opacity").value) / 100;
         document.getElementById("partition-bg-controls").style.display = "";
@@ -302,8 +303,12 @@
             partitionBgImages[App.activePartitionPage] ? "" : "none";
         if (!App.activePartitionTpl) {
             preview.insertAdjacentHTML("beforeend", '<div class="preview-hint">Select a template to begin.</div>');
+            document.getElementById("partition-bg-controls").style.display = "none";
             return;
         }
+        // Show/hide bg controls based on current page having an image
+        document.getElementById("partition-bg-controls").style.display =
+            partitionBgImages[App.activePartitionPage] ? "" : "none";
 
         var tpl = App.activePartitionTpl;
         var rect = preview.getBoundingClientRect();
@@ -407,13 +412,11 @@
             startRectDraw(ev, canvas, sc);
         });
 
-        var pageBgImg = partitionBgImages[App.activePartitionPage];
-        if (pageBgImg) {
+        if (partitionBgImages[App.activePartitionPage] && partitionBgVisible) {
             var bgEl = document.createElement("img");
             bgEl.className = "partition-bg-img";
-            bgEl.src = pageBgImg.src;
+            bgEl.src = partitionBgImages[App.activePartitionPage].src;
             bgEl.style.opacity = partitionBgOpacity;
-            if (!partitionBgVisible) bgEl.style.display = "none";
             canvas.appendChild(bgEl);
         }
 
@@ -566,7 +569,9 @@
     document.getElementById("btn-bg-remove").addEventListener("click", function () {
         delete partitionBgImages[App.activePartitionPage];
         partitionBgVisible = true;
-        document.getElementById("partition-bg-controls").style.display = "none";
+        if (Object.keys(partitionBgImages).length === 0) {
+            document.getElementById("partition-bg-controls").style.display = "none";
+        }
         App.renderPartitionCanvas();
     });
 
@@ -599,18 +604,17 @@
         console.log("SAVE sending partitions:", JSON.stringify(serialized));
         var bgMap = {};
         Object.keys(partitionBgImages).forEach(function (pg) {
-            bgMap[pg] = partitionBgImages[pg].src;
+            if (partitionBgImages[pg]) bgMap[pg] = partitionBgImages[pg].src;
         });
         var payload = {
             partitions: serialized,
-            bgImage: JSON.stringify(bgMap)
+            bgImage: Object.keys(bgMap).length ? JSON.stringify(bgMap) : ""
         };
         btn.disabled = true;
         btn.textContent = "Saving...";
         App.api("PUT", "/api/templates/" + tpl.id + "/partitions", payload).then(function (resp) {
-            console.log("SAVE received partitions:", JSON.stringify(resp.partitions));
             App.activePartitionTpl.partitions = resp.partitions;
-            App.activePartitionTpl.bgImage = JSON.stringify(bgMap);
+            App.activePartitionTpl.bgImage = resp.bgImage || "";
             savedPartitions = JSON.parse(JSON.stringify(resp.partitions));
             partitionSnapshot = null;
             App.renderPartitionCanvas();
