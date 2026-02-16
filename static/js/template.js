@@ -225,6 +225,8 @@
         canvas.appendChild(padRect);
 
         if (tpl.folding.type !== "mid" && tpl.sewing.position !== "none" && tpl.sewing.distance > 0) {
+            var sewLine = document.createElement("div");
+            sewLine.className = "sewing-line solid";
             if (tpl.sewing.position === "top") {
                 sewLine.classList.add("horizontal");
                 sewLine.style.top = (tpl.sewing.distance * tplScale) + "px";

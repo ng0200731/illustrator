@@ -219,13 +219,28 @@
     function startRectDraw(ev, canvasEl, sc) {
         if (!App.activePartitionTpl) return;
         var tpl = App.activePartitionTpl;
+        var effectiveSc = sc * partPan.zoom;
         var canvasRect = canvasEl.getBoundingClientRect();
-        var rawXmm = (ev.clientX - canvasRect.left) / sc;
-        var rawYmm = (ev.clientY - canvasRect.top) / sc;
+        var rawXmm = (ev.clientX - canvasRect.left) / effectiveSc;
+        var rawYmm = (ev.clientY - canvasRect.top) / effectiveSc;
         var snapEdges = collectSnapEdges(tpl);
-        var start = snapToEdges(rawXmm, rawYmm, snapEdges, sc, 8);
+        var start = snapToEdges(rawXmm, rawYmm, snapEdges, effectiveSc, 8);
         var pa = tpl.printingArea;
         if (!pa) return;
+
+        /* For mid fold, constrain drawing to the region the user started in */
+        var regions = App.calcPrintingRegions(tpl);
+        var drawBounds = pa;
+        if (regions.length > 1) {
+            for (var ri = 0; ri < regions.length; ri++) {
+                var r = regions[ri];
+                if (start.x >= r.x - 0.1 && start.x <= r.x + r.w + 0.1 &&
+                    start.y >= r.y - 0.1 && start.y <= r.y + r.h + 0.1) {
+                    drawBounds = r;
+                    break;
+                }
+            }
+        }
 
         var previewEl = document.createElement("div");
         previewEl.className = "rect-draw-preview";
@@ -237,8 +252,8 @@
         canvasEl.appendChild(snapDot);
 
         rectDrawState = {
-            sc: sc, canvasEl: canvasEl, canvasRect: canvasRect, tpl: tpl,
-            bounds: { x: pa.x, y: pa.y, x2: pa.x + pa.w, y2: pa.y + pa.h },
+            sc: sc, esc: effectiveSc, canvasEl: canvasEl, canvasRect: canvasRect, tpl: tpl,
+            bounds: { x: drawBounds.x, y: drawBounds.y, x2: drawBounds.x + drawBounds.w, y2: drawBounds.y + drawBounds.h },
             startMm: start, snapEdges: snapEdges, previewEl: previewEl, snapDot: snapDot
         };
 
@@ -250,9 +265,9 @@
         if (!rectDrawState) return;
         var s = rectDrawState;
         var B = s.bounds;
-        var rawXmm = Math.max(B.x, Math.min(B.x2, (e.clientX - s.canvasRect.left) / s.sc));
-        var rawYmm = Math.max(B.y, Math.min(B.y2, (e.clientY - s.canvasRect.top) / s.sc));
-        var end = snapToEdges(rawXmm, rawYmm, s.snapEdges, s.sc, 8);
+        var rawXmm = Math.max(B.x, Math.min(B.x2, (e.clientX - s.canvasRect.left) / s.esc));
+        var rawYmm = Math.max(B.y, Math.min(B.y2, (e.clientY - s.canvasRect.top) / s.esc));
+        var end = snapToEdges(rawXmm, rawYmm, s.snapEdges, s.esc, 8);
         end.x = Math.max(B.x, Math.min(B.x2, end.x));
         end.y = Math.max(B.y, Math.min(B.y2, end.y));
         var x1 = Math.min(s.startMm.x, end.x), y1 = Math.min(s.startMm.y, end.y);
@@ -278,9 +293,9 @@
         if (s.previewEl.parentNode) s.previewEl.parentNode.removeChild(s.previewEl);
         if (s.snapDot.parentNode) s.snapDot.parentNode.removeChild(s.snapDot);
         var B = s.bounds;
-        var rawXmm = Math.max(B.x, Math.min(B.x2, (e.clientX - s.canvasRect.left) / s.sc));
-        var rawYmm = Math.max(B.y, Math.min(B.y2, (e.clientY - s.canvasRect.top) / s.sc));
-        var end = snapToEdges(rawXmm, rawYmm, s.snapEdges, s.sc, 8);
+        var rawXmm = Math.max(B.x, Math.min(B.x2, (e.clientX - s.canvasRect.left) / s.esc));
+        var rawYmm = Math.max(B.y, Math.min(B.y2, (e.clientY - s.canvasRect.top) / s.esc));
+        var end = snapToEdges(rawXmm, rawYmm, s.snapEdges, s.esc, 8);
         end.x = Math.max(B.x, Math.min(B.x2, end.x));
         end.y = Math.max(B.y, Math.min(B.y2, end.y));
         var x1 = Math.round(Math.min(s.startMm.x, end.x) * 10) / 10;
@@ -402,9 +417,9 @@
 
         canvas.addEventListener("mousemove", function (ev) {
             if (rectDrawState || partitionEditMode) { hoverDot.style.display = "none"; return; }
-            var rawX = (ev.clientX - canvas.getBoundingClientRect().left) / sc;
-            var rawY = (ev.clientY - canvas.getBoundingClientRect().top) / sc;
-            var snap = snapToEdges(rawX, rawY, hoverSnapEdges, sc, 8);
+            var rawX = (ev.clientX - canvas.getBoundingClientRect().left) / (sc * partPan.zoom);
+            var rawY = (ev.clientY - canvas.getBoundingClientRect().top) / (sc * partPan.zoom);
+            var snap = snapToEdges(rawX, rawY, hoverSnapEdges, sc * partPan.zoom, 8);
             if (snap.snapped) {
                 hoverDot.style.display = "block";
                 hoverDot.style.left = (snap.x * sc - 4) + "px";
@@ -434,12 +449,13 @@
 
             var MIN_SIZE = 2;
             var startX = ev.clientX, startY = ev.clientY;
+            var effectiveSc = sc * partPan.zoom;
             var origP = { x: part.x, y: part.y, w: part.w, h: part.h };
             var origN = neighbor ? { x: neighbor.x, y: neighbor.y, w: neighbor.w, h: neighbor.h } : null;
 
             function onMove(e) {
-                var dxMm = (e.clientX - startX) / sc;
-                var dyMm = (e.clientY - startY) / sc;
+                var dxMm = (e.clientX - startX) / effectiveSc;
+                var dyMm = (e.clientY - startY) / effectiveSc;
                 var delta;
                 if (edge === "top") {
                     delta = origN
