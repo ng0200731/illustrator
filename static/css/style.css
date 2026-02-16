@@ -600,6 +600,7 @@ tbody tr:hover {
 .label-canvas {
     background: #fff;
     border: 2px solid #000;
+    box-sizing: content-box;
     position: relative;
     overflow: visible;
 }
@@ -675,6 +676,7 @@ tbody tr:hover {
     position: absolute;
     border: 1px dashed #999;
     pointer-events: none;
+    box-sizing: border-box;
 }
 
 .label-canvas .dotted-rect.printing-area {
@@ -687,6 +689,7 @@ tbody tr:hover {
     position: absolute;
     border: 2px solid red;
     pointer-events: none;
+    box-sizing: border-box;
 }
 
 .label-canvas .sewing-line {

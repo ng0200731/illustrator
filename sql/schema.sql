@@ -55,5 +55,6 @@ CREATE TABLE IF NOT EXISTS partitions (
     x REAL NOT NULL,
     y REAL NOT NULL,
     w REAL NOT NULL,
-    h REAL NOT NULL
+    h REAL NOT NULL,
+    locked INTEGER NOT NULL DEFAULT 0
 );

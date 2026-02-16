@@ -83,6 +83,16 @@ else:
         _mc.close()
     except Exception as e:
         print(f"Partition migration failed: {e}")
+    # Migrate: add locked column to partitions if missing
+    try:
+        _mc = sqlite3.connect(DB_PATH)
+        _pcols2 = [r[1] for r in _mc.execute("PRAGMA table_info(partitions)").fetchall()]
+        if "locked" not in _pcols2:
+            _mc.execute("ALTER TABLE partitions ADD COLUMN locked INTEGER NOT NULL DEFAULT 0")
+            _mc.commit()
+        _mc.close()
+    except Exception as e:
+        print(f"Locked migration failed: {e}")
 
 
 @app.route("/")
@@ -251,13 +261,13 @@ def api_create_template():
     parts_out = []
     for p in d.get("partitions", []):
         pcur = db.execute(
-            "INSERT INTO partitions (template_id, page, label, x, y, w, h) VALUES (?,?,?,?,?,?,?)",
-            (tid, p.get("page", 0), p["label"], p["x"], p["y"], p["w"], p["h"])
+            "INSERT INTO partitions (template_id, page, label, x, y, w, h, locked) VALUES (?,?,?,?,?,?,?,?)",
+            (tid, p.get("page", 0), p["label"], p["x"], p["y"], p["w"], p["h"], p.get("locked", 0))
         )
         parts_out.append({"id": pcur.lastrowid, "template_id": tid,
                           "page": p.get("page", 0),
                           "label": p["label"], "x": p["x"], "y": p["y"],
-                          "w": p["w"], "h": p["h"]})
+                          "w": p["w"], "h": p["h"], "locked": p.get("locked", 0)})
     db.commit()
     row = db.execute("SELECT * FROM templates WHERE id=?", (tid,)).fetchone()
     db.close()
@@ -303,13 +313,13 @@ def api_update_template(tid):
         parts_out = []
         for p in d.get("partitions", []):
             pcur = db.execute(
-                "INSERT INTO partitions (template_id, page, label, x, y, w, h) VALUES (?,?,?,?,?,?,?)",
-                (tid, p.get("page", 0), p["label"], p["x"], p["y"], p["w"], p["h"])
+                "INSERT INTO partitions (template_id, page, label, x, y, w, h, locked) VALUES (?,?,?,?,?,?,?,?)",
+                (tid, p.get("page", 0), p["label"], p["x"], p["y"], p["w"], p["h"], p.get("locked", 0))
             )
             parts_out.append({"id": pcur.lastrowid, "template_id": tid,
                               "page": p.get("page", 0),
                               "label": p["label"], "x": p["x"], "y": p["y"],
-                              "w": p["w"], "h": p["h"]})
+                              "w": p["w"], "h": p["h"], "locked": p.get("locked", 0)})
         db.commit()
         row = db.execute("SELECT * FROM templates WHERE id=?", (tid,)).fetchone()
         return jsonify(_template_to_dict(row, parts_out))
@@ -331,13 +341,13 @@ def api_update_partitions(tid):
     parts_out = []
     for p in d.get("partitions", []):
         pcur = db.execute(
-            "INSERT INTO partitions (template_id, page, label, x, y, w, h) VALUES (?,?,?,?,?,?,?)",
-            (tid, p.get("page", 0), p["label"], p["x"], p["y"], p["w"], p["h"])
+            "INSERT INTO partitions (template_id, page, label, x, y, w, h, locked) VALUES (?,?,?,?,?,?,?,?)",
+            (tid, p.get("page", 0), p["label"], p["x"], p["y"], p["w"], p["h"], p.get("locked", 0))
         )
         parts_out.append({"id": pcur.lastrowid, "template_id": tid,
                           "page": p.get("page", 0),
                           "label": p["label"], "x": p["x"], "y": p["y"],
-                          "w": p["w"], "h": p["h"]})
+                          "w": p["w"], "h": p["h"], "locked": p.get("locked", 0)})
     db.commit()
     row = db.execute("SELECT bg_image FROM templates WHERE id=?", (tid,)).fetchone()
     bg = row["bg_image"] if row else ""

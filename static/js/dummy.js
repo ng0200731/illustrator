@@ -69,7 +69,6 @@
             document.getElementById("fields-fold").classList.toggle("hidden", lineType !== "fold");
             document.getElementById("tpl-sew-position").value = App.rand(["top", "left"]);
             document.getElementById("tpl-sew-distance").value = App.rand([8, 10, 12]);
-            document.getElementById("tpl-sew-padding").value = App.rand([0, 1, 2]);
             document.getElementById("tpl-fold-padding").value = App.rand([0, 1, 2]);
             App.enforceSewingMin();
             App.renderTemplatePreview();

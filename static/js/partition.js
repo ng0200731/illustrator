@@ -294,6 +294,79 @@
         App.renderPartitionCanvas();
     }
 
+    /* ===== Partition Pan & Zoom ===== */
+    var partPan = { x: 0, y: 0, zoom: 1, spaceDown: false, dragging: false, startX: 0, startY: 0, origX: 0, origY: 0 };
+
+    function resetPartPanZoom() {
+        partPan.x = 0; partPan.y = 0; partPan.zoom = 1;
+        applyPartPanZoom();
+    }
+
+    function applyPartPanZoom() {
+        var wrap = document.querySelector("#partition-preview .preview-wrap");
+        if (wrap) wrap.style.transform = "translate(" + partPan.x + "px," + partPan.y + "px) scale(" + partPan.zoom + ")";
+    }
+
+    document.querySelectorAll("#partition-preview .btn-fit").forEach(function (btn) {
+        btn.addEventListener("click", resetPartPanZoom);
+    });
+
+    document.addEventListener("keydown", function (e) {
+        if (e.code === "Space" && !partPan.spaceDown) {
+            var preview = document.getElementById("partition-preview");
+            if (preview && preview.closest(".section-panel.active")) {
+                var sub = preview.closest(".sub-tab-content");
+                if (sub && sub.classList.contains("active")) {
+                    e.preventDefault();
+                    partPan.spaceDown = true;
+                    preview.classList.add("pan-ready");
+                }
+            }
+        }
+    });
+
+    document.addEventListener("keyup", function (e) {
+        if (e.code === "Space") {
+            partPan.spaceDown = false;
+            partPan.dragging = false;
+            var preview = document.getElementById("partition-preview");
+            if (preview) { preview.classList.remove("pan-ready"); preview.classList.remove("panning"); }
+        }
+    });
+
+    document.getElementById("partition-preview").addEventListener("mousedown", function (e) {
+        if (partPan.spaceDown) {
+            e.preventDefault();
+            partPan.dragging = true;
+            partPan.startX = e.clientX; partPan.startY = e.clientY;
+            partPan.origX = partPan.x; partPan.origY = partPan.y;
+            this.classList.add("panning"); this.classList.remove("pan-ready");
+        }
+    });
+
+    document.addEventListener("mousemove", function (e) {
+        if (partPan.dragging) {
+            partPan.x = partPan.origX + (e.clientX - partPan.startX);
+            partPan.y = partPan.origY + (e.clientY - partPan.startY);
+            applyPartPanZoom();
+        }
+    });
+
+    document.addEventListener("mouseup", function () {
+        if (partPan.dragging) {
+            partPan.dragging = false;
+            var preview = document.getElementById("partition-preview");
+            if (preview) { preview.classList.remove("panning"); if (partPan.spaceDown) preview.classList.add("pan-ready"); }
+        }
+    });
+
+    document.getElementById("partition-preview").addEventListener("wheel", function (e) {
+        e.preventDefault();
+        var delta = e.deltaY > 0 ? 0.9 : 1.1;
+        partPan.zoom = Math.min(Math.max(partPan.zoom * delta, 0.2), 10);
+        applyPartPanZoom();
+    }, { passive: false });
+
     /* ===== Render Partition Canvas ===== */
     App.renderPartitionCanvas = function () {
         var preview = document.getElementById("partition-preview");
@@ -317,8 +390,8 @@
 
         var canvas = document.createElement("div");
         canvas.className = "label-canvas";
-        canvas.style.width = Math.round(tpl.width * sc) + "px";
-        canvas.style.height = Math.round(tpl.height * sc) + "px";
+        canvas.style.width = (tpl.width * sc) + "px";
+        canvas.style.height = (tpl.height * sc) + "px";
         canvas.style.cursor = partitionEditMode ? "default" : "crosshair";
 
         var hoverDot = document.createElement("div");
@@ -438,7 +511,7 @@
             lbl.textContent = part.label + " (" + part.w.toFixed(1) + "x" + part.h.toFixed(1) + ")";
             el.appendChild(lbl);
 
-            if (partitionEditMode) {
+            if (partitionEditMode && !part.locked) {
                 ["top", "bottom", "left", "right"].forEach(function (edge) {
                     var handle = document.createElement("div");
                     handle.className = "partition-resize-handle resize-" + edge;
@@ -452,14 +525,22 @@
         });
 
         if (tpl.folding.type === "mid") {
+            var fPos = (tpl.sewing || {}).position || "none";
+            var fDist = (tpl.sewing || {}).distance || 0;
             var foldLine = document.createElement("div");
             foldLine.className = "fold-line";
-            if (tpl.orientation === "vertical") {
+            if (fPos === "top" || fPos === "bottom") {
+                var foldY = (fPos === "top" && fDist > 0) ? fDist
+                          : (fPos === "bottom" && fDist > 0) ? tpl.height - fDist
+                          : tpl.height / 2;
                 foldLine.classList.add("horizontal");
-                foldLine.style.top = (tpl.height / 2 * sc) + "px";
+                foldLine.style.top = (foldY * sc) + "px";
             } else {
+                var foldX = (fPos === "left" && fDist > 0) ? fDist
+                          : (fPos === "right" && fDist > 0) ? tpl.width - fDist
+                          : tpl.width / 2;
                 foldLine.classList.add("vertical");
-                foldLine.style.left = (tpl.width / 2 * sc) + "px";
+                foldLine.style.left = (foldX * sc) + "px";
             }
             canvas.appendChild(foldLine);
         }
@@ -479,7 +560,11 @@
             });
         });
 
-        preview.appendChild(canvas);
+        var wrap = document.createElement("div");
+        wrap.className = "preview-wrap";
+        wrap.appendChild(canvas);
+        wrap.style.transform = "translate(" + partPan.x + "px," + partPan.y + "px) scale(" + partPan.zoom + ")";
+        preview.appendChild(wrap);
         renderPartitionList();
     };
 
@@ -497,7 +582,7 @@
             span.textContent = p.label + " (" + p.w.toFixed(1) + "x" + p.h.toFixed(1) + ")";
             div.appendChild(span);
 
-            if (getPagePartitions().length > 1) {
+            if (getPagePartitions().length > 1 && !p.locked) {
                 var btn = document.createElement("button");
                 btn.className = "delete-btn btn-outline";
                 btn.textContent = "\u00d7";
@@ -592,7 +677,7 @@
 
     function serializePartitions(parts) {
         return parts.map(function (p) {
-            return { page: p.page || 0, label: p.label, x: p.x, y: p.y, w: p.w, h: p.h };
+            return { page: p.page || 0, label: p.label, x: p.x, y: p.y, w: p.w, h: p.h, locked: p.locked || 0 };
         });
     }
 
@@ -644,23 +729,11 @@
         if (!App.activePartitionTpl) return;
         var tpl = App.activePartitionTpl;
         var newPageIndex = getPageCount();
-        var pa = tpl.printingArea || App.calcPrintingArea(tpl);
         var newPartitions = [];
-
-        if (tpl.folding && tpl.folding.type === "mid") {
-            var fp = tpl.folding.padding || 0;
-            if (tpl.orientation === "vertical") {
-                var halfH = tpl.height / 2;
-                newPartitions.push({ page: newPageIndex, label: "", x: pa.x, y: pa.y, w: pa.w, h: halfH - fp - pa.y });
-                newPartitions.push({ page: newPageIndex, label: "", x: pa.x, y: halfH + fp, w: pa.w, h: (pa.y + pa.h) - (halfH + fp) });
-            } else {
-                var halfW = tpl.width / 2;
-                newPartitions.push({ page: newPageIndex, label: "", x: pa.x, y: pa.y, w: halfW - fp - pa.x, h: pa.h });
-                newPartitions.push({ page: newPageIndex, label: "", x: halfW + fp, y: pa.y, w: (pa.x + pa.w) - (halfW + fp), h: pa.h });
-            }
-        } else {
-            newPartitions.push({ page: newPageIndex, label: "", x: pa.x, y: pa.y, w: pa.w, h: pa.h });
-        }
+        var regions = App.calcPrintingRegions(tpl);
+        regions.forEach(function (r) {
+            newPartitions.push({ page: newPageIndex, label: "", x: r.x, y: r.y, w: r.w, h: r.h, locked: 1 });
+        });
 
         tpl.partitions = tpl.partitions.concat(newPartitions);
         assignPartitionLabelsForPage(tpl.partitions, newPageIndex);

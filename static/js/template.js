@@ -32,7 +32,7 @@
     document.getElementById("tpl-sew-distance").addEventListener("change", App.enforceSewingMin);
 
     ["tpl-width", "tpl-height", "tpl-pad-top", "tpl-pad-bottom", "tpl-pad-left", "tpl-pad-right",
-     "tpl-sew-distance", "tpl-sew-padding", "tpl-fold-padding"].forEach(function (id) {
+     "tpl-sew-distance", "tpl-fold-padding"].forEach(function (id) {
         document.getElementById(id).addEventListener("input", function () { App.renderTemplatePreview(); });
     });
 
@@ -106,7 +106,7 @@
                 document.getElementById("fields-fold").classList.add("hidden");
             } else {
                 document.getElementById("fields-fold").classList.remove("hidden");
-                document.getElementById("fields-sewing").classList.add("hidden");
+                document.getElementById("fields-sewing").classList.remove("hidden");
             }
             App.renderTemplatePreview();
         });
@@ -127,9 +127,9 @@
                 right: parseFloat(document.getElementById("tpl-pad-right").value) || 0
             },
             sewing: {
-                position: lineType === "sewing" ? document.getElementById("tpl-sew-position").value : "none",
+                position: document.getElementById("tpl-sew-position").value,
                 distance: parseFloat(document.getElementById("tpl-sew-distance").value) || 0,
-                padding: parseFloat(document.getElementById("tpl-sew-padding").value) || 0
+                padding: parseFloat(document.getElementById("tpl-fold-padding").value) || 0
             },
             folding: {
                 type: lineType === "fold" ? "mid" : "none",
@@ -152,6 +152,30 @@
 
     App.calcPrintingRegions = function (tpl) {
         var top = tpl.padding.top, bottom = tpl.padding.bottom, left = tpl.padding.left, right = tpl.padding.right;
+
+        if (tpl.folding.type === "mid") {
+            /* In fold mode, sewing position/distance define the fold line position */
+            var fp = tpl.folding.padding;
+            var pos = tpl.sewing.position;
+            var dist = tpl.sewing.distance;
+            var regions = [];
+            if (pos === "top" || pos === "bottom") {
+                var foldY = (pos === "top" && dist > 0) ? dist
+                          : (pos === "bottom" && dist > 0) ? tpl.height - dist
+                          : tpl.height / 2;
+                regions.push({ x: left, y: top, w: tpl.width - left - right, h: foldY - fp - top });
+                regions.push({ x: left, y: foldY + fp, w: tpl.width - left - right, h: tpl.height - bottom - (foldY + fp) });
+            } else {
+                var foldX = (pos === "left" && dist > 0) ? dist
+                          : (pos === "right" && dist > 0) ? tpl.width - dist
+                          : tpl.width / 2;
+                regions.push({ x: left, y: top, w: foldX - fp - left, h: tpl.height - top - bottom });
+                regions.push({ x: foldX + fp, y: top, w: tpl.width - right - (foldX + fp), h: tpl.height - top - bottom });
+            }
+            return regions;
+        }
+
+        /* Sewing mode — sewing offsets reduce the printing area */
         var sewTotal = tpl.sewing.distance + tpl.sewing.padding;
         if (tpl.sewing.position !== "none" && tpl.sewing.distance > 0) {
             if (tpl.sewing.position === "top" && sewTotal > top) top = sewTotal;
@@ -159,22 +183,7 @@
             if (tpl.sewing.position === "left" && sewTotal > left) left = sewTotal;
             if (tpl.sewing.position === "right" && sewTotal > right) right = sewTotal;
         }
-        var regions = [];
-        if (tpl.folding.type === "mid") {
-            var fp = tpl.folding.padding;
-            if (tpl.orientation === "vertical") {
-                var midY = tpl.height / 2;
-                regions.push({ x: left, y: top, w: tpl.width - left - right, h: midY - fp - top });
-                regions.push({ x: left, y: midY + fp, w: tpl.width - left - right, h: tpl.height - bottom - (midY + fp) });
-            } else {
-                var midX = tpl.width / 2;
-                regions.push({ x: left, y: top, w: midX - fp - left, h: tpl.height - top - bottom });
-                regions.push({ x: midX + fp, y: top, w: tpl.width - right - (midX + fp), h: tpl.height - top - bottom });
-            }
-        } else {
-            regions.push({ x: left, y: top, w: tpl.width - left - right, h: tpl.height - top - bottom });
-        }
-        return regions;
+        return [{ x: left, y: top, w: tpl.width - left - right, h: tpl.height - top - bottom }];
     };
 
     App.clearPreview = function (preview) {
@@ -198,20 +207,21 @@
         tplScale = Math.min(maxW / tpl.width, maxH / tpl.height, 8);
         tplScale = Math.max(tplScale, 1);
 
-        var pxW = Math.round(tpl.width * tplScale);
-        var pxH = Math.round(tpl.height * tplScale);
+        var pxW = tpl.width * tplScale;
+        var pxH = tpl.height * tplScale;
 
         var canvas = document.createElement("div");
         canvas.className = "label-canvas";
         canvas.style.width = pxW + "px";
         canvas.style.height = pxH + "px";
 
+        var pa = App.calcPrintingArea(tpl);
         var padRect = document.createElement("div");
         padRect.className = "dotted-rect";
-        padRect.style.left = (tpl.padding.left * tplScale) + "px";
-        padRect.style.top = (tpl.padding.top * tplScale) + "px";
-        padRect.style.width = ((tpl.width - tpl.padding.left - tpl.padding.right) * tplScale) + "px";
-        padRect.style.height = ((tpl.height - tpl.padding.top - tpl.padding.bottom) * tplScale) + "px";
+        padRect.style.left = (pa.x * tplScale) + "px";
+        padRect.style.top = (pa.y * tplScale) + "px";
+        padRect.style.width = (pa.w * tplScale) + "px";
+        padRect.style.height = (pa.h * tplScale) + "px";
         canvas.appendChild(padRect);
 
         if (tpl.sewing.position !== "none" && tpl.sewing.distance > 0) {
@@ -292,23 +302,32 @@
         });
 
         if (tpl.folding.type === "mid") {
+            var foldPos = tpl.sewing.position;
+            var foldDist = tpl.sewing.distance;
             var foldLine = document.createElement("div");
             foldLine.className = "fold-line";
-            if (tpl.orientation === "vertical") {
+            var foldAt;
+            if (foldPos === "top" || foldPos === "bottom") {
+                foldAt = (foldPos === "top" && foldDist > 0) ? foldDist
+                       : (foldPos === "bottom" && foldDist > 0) ? tpl.height - foldDist
+                       : tpl.height / 2;
                 foldLine.classList.add("horizontal");
-                foldLine.style.top = (tpl.height / 2 * tplScale) + "px";
+                foldLine.style.top = (foldAt * tplScale) + "px";
             } else {
+                foldAt = (foldPos === "left" && foldDist > 0) ? foldDist
+                       : (foldPos === "right" && foldDist > 0) ? tpl.width - foldDist
+                       : tpl.width / 2;
                 foldLine.classList.add("vertical");
-                foldLine.style.left = (tpl.width / 2 * tplScale) + "px";
+                foldLine.style.left = (foldAt * tplScale) + "px";
             }
             var foldLabel = document.createElement("div");
             foldLabel.className = "canvas-label";
-            foldLabel.textContent = "mid fold";
-            if (tpl.orientation === "vertical") {
-                foldLabel.style.top = ((tpl.height / 2 * tplScale) + 2) + "px";
+            foldLabel.textContent = "fold";
+            if (foldPos === "top" || foldPos === "bottom") {
+                foldLabel.style.top = ((foldAt * tplScale) + 2) + "px";
                 foldLabel.style.right = "4px";
             } else {
-                foldLabel.style.left = ((tpl.width / 2 * tplScale) + 4) + "px";
+                foldLabel.style.left = ((foldAt * tplScale) + 4) + "px";
                 foldLabel.style.top = "2px";
             }
             canvas.appendChild(foldLine);
@@ -317,24 +336,22 @@
             if (tpl.folding.padding > 0) {
                 var fp = tpl.folding.padding;
                 if (tpl.orientation === "vertical") {
-                    var midY = tpl.height / 2;
                     var fl1 = document.createElement("div");
                     fl1.className = "fold-line horizontal";
-                    fl1.style.top = ((midY - fp) * tplScale) + "px";
+                    fl1.style.top = ((foldAt - fp) * tplScale) + "px";
                     canvas.appendChild(fl1);
                     var fl2 = document.createElement("div");
                     fl2.className = "fold-line horizontal";
-                    fl2.style.top = ((midY + fp) * tplScale) + "px";
+                    fl2.style.top = ((foldAt + fp) * tplScale) + "px";
                     canvas.appendChild(fl2);
                 } else {
-                    var midX = tpl.width / 2;
                     var fl1v = document.createElement("div");
                     fl1v.className = "fold-line vertical";
-                    fl1v.style.left = ((midX - fp) * tplScale) + "px";
+                    fl1v.style.left = ((foldAt - fp) * tplScale) + "px";
                     canvas.appendChild(fl1v);
                     var fl2v = document.createElement("div");
                     fl2v.className = "fold-line vertical";
-                    fl2v.style.left = ((midX + fp) * tplScale) + "px";
+                    fl2v.style.left = ((foldAt + fp) * tplScale) + "px";
                     canvas.appendChild(fl2v);
                 }
             }
@@ -351,6 +368,32 @@
         wrap.appendChild(canvas);
         wrap.style.transform = "translate(" + panState.x + "px," + panState.y + "px) scale(" + panState.zoom + ")";
         preview.appendChild(wrap);
+
+        /* Sync partition canvas with current form values */
+        if (App.activePartitionTpl) {
+            var atpl = App.activePartitionTpl;
+            atpl.width = tpl.width;
+            atpl.height = tpl.height;
+            atpl.orientation = tpl.orientation;
+            atpl.padding = tpl.padding;
+            atpl.sewing = tpl.sewing;
+            atpl.folding = tpl.folding;
+            atpl.printingArea = pa;
+
+            /* Always regenerate locked page-0 partitions from current settings */
+            var kept = atpl.partitions.filter(function (p) {
+                return (p.page || 0) !== 0 || !p.locked;
+            });
+            var regions = App.calcPrintingRegions(tpl);
+            var labels = tpl.folding.type === "mid"
+                ? (tpl.orientation === "vertical" ? ["Top", "Bottom"] : ["Left", "Right"])
+                : ["Main"];
+            var fresh = regions.map(function (r, i) {
+                return { page: 0, label: labels[i] || "Main", x: r.x, y: r.y, w: r.w, h: r.h, locked: 1 };
+            });
+            atpl.partitions = fresh.concat(kept);
+            if (App.renderPartitionCanvas) App.renderPartitionCanvas();
+        }
     };
 
     /* ===== Canvas Pan & Zoom ===== */
@@ -457,53 +500,16 @@
 
         if (isUpdate) {
             tpl.bgImage = App.activePartitionTpl.bgImage || "";
-            // Detect if template config changed — if so, recalculate page-0 partitions
-            var oldPa = App.activePartitionTpl.printingArea;
-            var newPa = tpl.printingArea;
-            var oldFold = (App.activePartitionTpl.folding || {}).type || "none";
-            var newFold = tpl.folding.type;
-            var configChanged = oldFold !== newFold
-                || Math.abs(oldPa.x - newPa.x) > 0.01 || Math.abs(oldPa.y - newPa.y) > 0.01
-                || Math.abs(oldPa.w - newPa.w) > 0.01 || Math.abs(oldPa.h - newPa.h) > 0.01;
-            if (configChanged) {
-                // Keep partitions on other pages, regenerate page 0
-                var kept = (App._getPartitionSnapshot() || App.activePartitionTpl.partitions).filter(function (p) { return (p.page || 0) !== 0; });
-                var fresh = [];
-                if (tpl.folding.type === "mid") {
-                    var fp = tpl.folding.padding || 0;
-                    if (tpl.orientation === "vertical") {
-                        var halfH = tpl.height / 2;
-                        fresh.push({ page: 0, label: "Top", x: newPa.x, y: newPa.y, w: newPa.w, h: halfH - fp - newPa.y });
-                        fresh.push({ page: 0, label: "Bottom", x: newPa.x, y: halfH + fp, w: newPa.w, h: (newPa.y + newPa.h) - (halfH + fp) });
-                    } else {
-                        var halfW = tpl.width / 2;
-                        fresh.push({ page: 0, label: "Left", x: newPa.x, y: newPa.y, w: halfW - fp - newPa.x, h: newPa.h });
-                        fresh.push({ page: 0, label: "Right", x: halfW + fp, y: newPa.y, w: (newPa.x + newPa.w) - (halfW + fp), h: newPa.h });
-                    }
-                } else {
-                    fresh.push({ page: 0, label: "Main", x: newPa.x, y: newPa.y, w: newPa.w, h: newPa.h });
-                }
-                tpl.partitions = fresh.concat(kept);
-            } else {
-                tpl.partitions = App._getPartitionSnapshot() || App.activePartitionTpl.partitions;
-            }
+            tpl.partitions = App._getPartitionSnapshot() || App.activePartitionTpl.partitions;
         } else {
-            // New template: create default partitions
-            tpl.partitions = [];
-            if (tpl.folding.type === "mid") {
-                var fp = tpl.folding.padding || 0;
-                if (tpl.orientation === "vertical") {
-                    var halfH = tpl.height / 2;
-                    tpl.partitions.push({ page: 0, label: "Top", x: tpl.printingArea.x, y: tpl.printingArea.y, w: tpl.printingArea.w, h: halfH - fp - tpl.printingArea.y });
-                    tpl.partitions.push({ page: 0, label: "Bottom", x: tpl.printingArea.x, y: halfH + fp, w: tpl.printingArea.w, h: (tpl.printingArea.y + tpl.printingArea.h) - (halfH + fp) });
-                } else {
-                    var halfW = tpl.width / 2;
-                    tpl.partitions.push({ page: 0, label: "Left", x: tpl.printingArea.x, y: tpl.printingArea.y, w: halfW - fp - tpl.printingArea.x, h: tpl.printingArea.h });
-                    tpl.partitions.push({ page: 0, label: "Right", x: halfW + fp, y: tpl.printingArea.y, w: (tpl.printingArea.x + tpl.printingArea.w) - (halfW + fp), h: tpl.printingArea.h });
-                }
-            } else {
-                tpl.partitions.push({ page: 0, label: "Main", x: tpl.printingArea.x, y: tpl.printingArea.y, w: tpl.printingArea.w, h: tpl.printingArea.h });
-            }
+            // New template: create default partitions from regions
+            var regions = App.calcPrintingRegions(tpl);
+            var labels = tpl.folding.type === "mid"
+                ? (tpl.orientation === "vertical" ? ["Top", "Bottom"] : ["Left", "Right"])
+                : ["Main"];
+            tpl.partitions = regions.map(function (r, i) {
+                return { page: 0, label: labels[i] || "Main", x: r.x, y: r.y, w: r.w, h: r.h, locked: 1 };
+            });
         }
         var method = isUpdate ? "PUT" : "POST";
         var url = isUpdate ? "/api/templates/" + App.activePartitionTpl.id : "/api/templates";
@@ -537,12 +543,20 @@
         var wrap = document.createElement("div");
         wrap.className = "two-piece-wrap";
         if (tpl.folding.type === "mid") {
-            if (tpl.orientation === "vertical") {
-                wrap.appendChild(makePieceCanvas(tpl, "Top", 0, 0, tpl.width, tpl.height / 2));
-                wrap.appendChild(makePieceCanvas(tpl, "Bottom", 0, tpl.height / 2, tpl.width, tpl.height / 2));
+            var pos = (tpl.sewing || {}).position || "none";
+            var dist = (tpl.sewing || {}).distance || 0;
+            if (pos === "top" || pos === "bottom") {
+                var foldY = (pos === "top" && dist > 0) ? dist
+                          : (pos === "bottom" && dist > 0) ? tpl.height - dist
+                          : tpl.height / 2;
+                wrap.appendChild(makePieceCanvas(tpl, "Top", 0, 0, tpl.width, foldY));
+                wrap.appendChild(makePieceCanvas(tpl, "Bottom", 0, foldY, tpl.width, tpl.height - foldY));
             } else {
-                wrap.appendChild(makePieceCanvas(tpl, "Left", 0, 0, tpl.width / 2, tpl.height));
-                wrap.appendChild(makePieceCanvas(tpl, "Right", tpl.width / 2, 0, tpl.width / 2, tpl.height));
+                var foldX = (pos === "left" && dist > 0) ? dist
+                          : (pos === "right" && dist > 0) ? tpl.width - dist
+                          : tpl.width / 2;
+                wrap.appendChild(makePieceCanvas(tpl, "Left", 0, 0, foldX, tpl.height));
+                wrap.appendChild(makePieceCanvas(tpl, "Right", foldX, 0, tpl.width - foldX, tpl.height));
             }
         } else {
             wrap.appendChild(makePieceCanvas(tpl, "Full", 0, 0, tpl.width, tpl.height));
@@ -561,8 +575,8 @@
         sc = Math.max(sc, 1);
         var cvs = document.createElement("div");
         cvs.className = "label-canvas";
-        cvs.style.width = Math.round(w * sc) + "px";
-        cvs.style.height = Math.round(h * sc) + "px";
+        cvs.style.width = (w * sc) + "px";
+        cvs.style.height = (h * sc) + "px";
         container.appendChild(cvs);
         return container;
     }
@@ -622,13 +636,13 @@
         document.querySelectorAll(".line-type-btn").forEach(function (b) {
             b.classList.toggle("active", b.dataset.linetype === lineType);
         });
-        document.getElementById("fields-sewing").classList.toggle("hidden", lineType !== "sewing");
+        document.getElementById("fields-sewing").classList.remove("hidden");
         document.getElementById("fields-fold").classList.toggle("hidden", lineType !== "fold");
 
         if (t.sewing) {
             document.getElementById("tpl-sew-position").value = t.sewing.position || "top";
             document.getElementById("tpl-sew-distance").value = t.sewing.distance || 0;
-            document.getElementById("tpl-sew-padding").value = t.sewing.padding || 0;
+            document.getElementById("tpl-fold-padding").value = t.sewing.padding || 0;
         }
 
         if (t.folding) {
