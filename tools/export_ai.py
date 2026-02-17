@@ -36,27 +36,7 @@ def generate_ai(data, output_path, outlined=False):
     page_w = w_mm * mm
     page_h = h_mm * mm
 
-    c = pdf_canvas.Canvas(output_path, pagesize=(page_w, page_h))
-    c.setCreator("Wash Care Label Designer")
-    c.setTitle("Wash Care Label")
-
-    # Draw PDF background if present
-    pdf_bg = data.get("pdfBackground")
-    if pdf_bg:
-        try:
-            header, b64_data = pdf_bg.split(",", 1)
-            img_bytes = base64.b64decode(b64_data)
-            img = ImageReader(io.BytesIO(img_bytes))
-            c.drawImage(img, 0, 0, width=page_w, height=page_h)
-        except Exception:
-            pass
-
-    # Label border
-    c.setStrokeColorRGB(0, 0, 0)
-    c.setLineWidth(0.5)
-    c.rect(0, 0, page_w, page_h)
-
-    # Separate components into visible and hidden pdfpaths, and others
+    # Separate components
     visible_paths = []
     hidden_paths = []
     other_comps = []
@@ -69,18 +49,73 @@ def generate_ai(data, output_path, outlined=False):
         else:
             other_comps.append(comp)
 
-    # Draw visible pdfpaths
+    # If no hidden paths, simple single-pass export
+    if not hidden_paths:
+        c = pdf_canvas.Canvas(output_path, pagesize=(page_w, page_h))
+        c.setCreator("Wash Care Label Designer")
+        c.setTitle("Wash Care Label")
+        _draw_background(c, data, page_w, page_h)
+        _draw_border(c, page_w, page_h)
+        for comp in visible_paths:
+            _draw_pdfpath(c, comp, page_h)
+        _draw_other_comps(c, other_comps, page_h, outlined)
+        c.save()
+        return
+
+    # Single page: hidden first (bottom in AI layers), separator, then visible (top)
+    # Illustrator reverses draw order: last drawn = top of Layers panel
+    c = pdf_canvas.Canvas(output_path, pagesize=(page_w, page_h))
+    c.setCreator("Wash Care Label Designer")
+    c.setTitle("Wash Care Label")
+    _draw_background(c, data, page_w, page_h)
+    _draw_border(c, page_w, page_h)
+
+    # Draw hidden paths first (will appear at bottom of Layers panel in AI)
+    for comp in hidden_paths:
+        _draw_pdfpath(c, comp, page_h)
+
+    # Separator line across the page (visible divider in Layers panel)
+    c.saveState()
+    c.setStrokeColorRGB(1, 0, 0)
+    c.setLineWidth(0.1)
+    c.line(0, page_h / 2, 0.01, page_h / 2)
+    c.restoreState()
+
+    # Draw visible paths last (will appear at top of Layers panel in AI)
     for comp in visible_paths:
         _draw_pdfpath(c, comp, page_h)
 
     # Draw other components
+    _draw_other_comps(c, other_comps, page_h, outlined)
+
+    c.save()
+
+
+def _draw_background(c, data, page_w, page_h):
+    pdf_bg = data.get("pdfBackground")
+    if pdf_bg:
+        try:
+            header, b64_data = pdf_bg.split(",", 1)
+            img_bytes = base64.b64decode(b64_data)
+            img = ImageReader(io.BytesIO(img_bytes))
+            c.drawImage(img, 0, 0, width=page_w, height=page_h)
+        except Exception:
+            pass
+
+
+def _draw_border(c, page_w, page_h):
+    c.setStrokeColorRGB(0, 0, 0)
+    c.setLineWidth(0.5)
+    c.rect(0, 0, page_w, page_h)
+
+
+def _draw_other_comps(c, other_comps, page_h, outlined):
     for comp in other_comps:
         comp_type = comp.get("type", "")
         x = comp.get("x", 0) * mm
         y = page_h - comp.get("y", 0) * mm
         w = comp.get("width", 0) * mm
         h = comp.get("height", 0) * mm
-
         if comp_type in ("text", "paragraph"):
             if outlined:
                 _draw_outlined_text(c, comp, x, y, w, h, page_h)
@@ -92,17 +127,6 @@ def generate_ai(data, output_path, outlined=False):
             _draw_barcode(c, comp, x, y, w, h)
         elif comp_type == "qrcode":
             _draw_qrcode(c, comp, x, y, w, h)
-
-    # Draw hidden pdfpaths with reduced opacity on a separate state
-    if hidden_paths:
-        c.saveState()
-        c.setFillAlpha(0.15)
-        c.setStrokeAlpha(0.15)
-        for comp in hidden_paths:
-            _draw_pdfpath(c, comp, page_h)
-        c.restoreState()
-
-    c.save()
 
 
 def _draw_pdfpath(c, comp, page_h):
