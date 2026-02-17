@@ -15,6 +15,95 @@
     var dragState = null;
     var editingIdx = -1;
     var pdfFileName = "";
+    var collapsedGroups = {}; /* track collapsed group state */
+
+    /* ===== Group Toolbar ===== */
+    function generateGroupId() {
+        return "grp-" + Date.now() + "-" + Math.random().toString(36).substr(2, 9);
+    }
+
+    function updateGroupToolbar() {
+        var toolbar = document.getElementById("group-toolbar");
+        var btnGroup = document.getElementById("btn-group");
+        var btnUngroup = document.getElementById("btn-ungroup");
+        if (!toolbar || !btnGroup || !btnUngroup) return;
+
+        if (selectedSet.length < 2) {
+            toolbar.style.display = "none";
+            return;
+        }
+
+        /* Check if all selected items belong to same group */
+        var groupIds = [];
+        selectedSet.forEach(function (i) {
+            var gid = components[i] && components[i].groupId;
+            if (gid && groupIds.indexOf(gid) === -1) groupIds.push(gid);
+        });
+        var allUngrouped = selectedSet.every(function (i) { return !components[i].groupId; });
+        var allSameGroup = groupIds.length === 1 && selectedSet.every(function (i) { return components[i].groupId === groupIds[0]; });
+
+        btnGroup.style.display = allUngrouped ? "inline-block" : "none";
+        btnUngroup.style.display = allSameGroup ? "inline-block" : "none";
+
+        if (!allUngrouped && !allSameGroup) {
+            toolbar.style.display = "none";
+            return;
+        }
+
+        /* Calculate bounding box of selected items */
+        var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        selectedSet.forEach(function (i) {
+            var c = components[i];
+            if (c.x < minX) minX = c.x;
+            if (c.y < minY) minY = c.y;
+            if (c.x + c.w > maxX) maxX = c.x + c.w;
+            if (c.y + c.h > maxY) maxY = c.y + c.h;
+        });
+
+        /* Position toolbar above selection */
+        var preview = document.getElementById("component-preview");
+        var canvasEl = preview.querySelector(".label-canvas");
+        if (!canvasEl) { toolbar.style.display = "none"; return; }
+
+        var cr = canvasEl.getBoundingClientRect();
+        var pr = preview.getBoundingClientRect();
+        var esc = sc * pan.zoom;
+        var centerX = (minX + maxX) / 2 * esc + (cr.left - pr.left);
+        var topY = minY * esc + (cr.top - pr.top) - 35;
+
+        toolbar.style.left = (centerX - 50) + "px";
+        toolbar.style.top = Math.max(5, topY) + "px";
+        toolbar.style.display = "flex";
+    }
+
+    function doGroup() {
+        if (selectedSet.length < 2) return;
+        var gid = generateGroupId();
+        selectedSet.forEach(function (i) {
+            components[i].groupId = gid;
+        });
+        renderCanvas();
+        renderPlacedList();
+    }
+
+    function doUngroup() {
+        selectedSet.forEach(function (i) {
+            components[i].groupId = null;
+        });
+        renderCanvas();
+        renderPlacedList();
+    }
+
+    function selectGroup(groupId) {
+        selectedSet = [];
+        components.forEach(function (c, i) {
+            if (c.groupId === groupId && (c.page || 0) === compPage) {
+                selectedSet.push(i);
+            }
+        });
+        selectedIdx = -1;
+        renderCanvas();
+    }
 
     /* ===== Helpers ===== */
     function getPagePartitions() {
@@ -76,16 +165,108 @@
         }
     }
 
-    /* ===== Placed List ===== */
+    /* ===== original List ===== */
     function renderPlacedList() {
         var list = document.getElementById("comp-placed-list");
         if (!list) return;
         list.innerHTML = "";
         var pageComps = getPageComponents();
+
+        /* Collect groups and ungrouped items */
+        var groups = {};
+        var ungrouped = [];
         pageComps.forEach(function (c) {
             var idx = components.indexOf(c);
+            if (c.groupId) {
+                if (!groups[c.groupId]) groups[c.groupId] = [];
+                groups[c.groupId].push({ comp: c, idx: idx });
+            } else {
+                ungrouped.push({ comp: c, idx: idx });
+            }
+        });
+
+        /* Render groups first */
+        Object.keys(groups).forEach(function (gid, gIndex) {
+            var groupItems = groups[gid];
+            var isCollapsed = collapsedGroups[gid];
+
+            /* Check if any item in group is selected */
+            var groupSelected = groupItems.some(function (item) {
+                return item.idx === selectedIdx || (selectedSet && selectedSet.indexOf(item.idx) !== -1);
+            });
+
+            /* Group header */
+            var header = document.createElement("div");
+            header.className = "group-header" + (groupSelected ? " highlight" : "");
+            var toggle = document.createElement("span");
+            toggle.className = "toggle";
+            toggle.textContent = isCollapsed ? "▶" : "▼";
+            header.appendChild(toggle);
+            var label = document.createElement("span");
+            label.textContent = "Group " + (gIndex + 1) + " (" + groupItems.length + ")";
+            header.appendChild(label);
+            header.addEventListener("click", function (e) {
+                if (e.target === toggle) {
+                    /* Toggle collapse */
+                    collapsedGroups[gid] = !collapsedGroups[gid];
+                    renderPlacedList();
+                } else {
+                    /* Select entire group */
+                    selectGroup(gid);
+                    renderPlacedList();
+                    updateGroupToolbar();
+                }
+            });
+            list.appendChild(header);
+
+            /* Group children container */
+            var children = document.createElement("div");
+            children.className = "group-children" + (isCollapsed ? " collapsed" : "");
+
+            groupItems.forEach(function (item) {
+                var c = item.comp;
+                var idx = item.idx;
+                var li = document.createElement("div");
+                var isSelected = idx === selectedIdx || (selectedSet && selectedSet.indexOf(idx) !== -1);
+                li.className = "component-list-item grouped" + (isSelected ? " highlight" : "");
+                var span = document.createElement("span");
+                span.textContent = c.type + ": " + (c.content || "").substring(0, 20);
+                li.appendChild(span);
+                var del = document.createElement("button");
+                del.className = "delete-btn";
+                del.textContent = "×";
+                del.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    components.splice(idx, 1);
+                    if (selectedIdx === idx) selectedIdx = -1;
+                    else if (selectedIdx > idx) selectedIdx--;
+                    /* Remove from selectedSet */
+                    var setIdx = selectedSet.indexOf(idx);
+                    if (setIdx >= 0) selectedSet.splice(setIdx, 1);
+                    selectedSet = selectedSet.map(function (i) { return i > idx ? i - 1 : i; });
+                    renderCanvas();
+                    renderPlacedList();
+                    updateGroupToolbar();
+                });
+                li.appendChild(del);
+                li.addEventListener("click", function () {
+                    selectGroup(gid);
+                    renderPlacedList();
+                    updateGroupToolbar();
+                });
+                addHoverHandlers(li, idx);
+                children.appendChild(li);
+            });
+            list.appendChild(children);
+        });
+
+        /* Render ungrouped items */
+        ungrouped.forEach(function (item) {
+            var c = item.comp;
+            var idx = item.idx;
             var li = document.createElement("div");
-            li.className = "component-list-item" + (idx === selectedIdx ? " highlight" : "");
+            var isSelected = idx === selectedIdx || (selectedSet && selectedSet.indexOf(idx) !== -1);
+            li.className = "component-list-item" + (isSelected ? " highlight" : "");
             var span = document.createElement("span");
             span.textContent = c.type + ": " + (c.content || "").substring(0, 20);
             li.appendChild(span);
@@ -98,30 +279,83 @@
                 if (selectedIdx === idx) selectedIdx = -1;
                 else if (selectedIdx > idx) selectedIdx--;
                 renderCanvas();
+                renderPlacedList();
             });
             li.appendChild(del);
-            li.addEventListener("click", function () {
-                selectedIdx = idx;
+            li.addEventListener("click", function (e) {
+                if (e.ctrlKey || e.metaKey) {
+                    /* Ctrl+click: toggle this item in multi-select */
+                    if (selectedIdx >= 0 && selectedSet.indexOf(selectedIdx) === -1) {
+                        selectedSet.push(selectedIdx);
+                    }
+                    selectedIdx = -1;
+                    var pos = selectedSet.indexOf(idx);
+                    if (pos >= 0) {
+                        selectedSet.splice(pos, 1);
+                    } else {
+                        selectedSet.push(idx);
+                    }
+                } else {
+                    selectedIdx = idx;
+                    selectedSet = [];
+                }
                 renderCanvas();
+                renderPlacedList();
+                updateGroupToolbar();
             });
-            li.addEventListener("mouseenter", function () {
-                var pathEl = document.querySelector('#component-preview svg path[data-comp-index="' + idx + '"]');
-                if (pathEl) {
-                    pathEl.dataset.origStroke = pathEl.getAttribute("stroke");
-                    pathEl.dataset.origWidth = pathEl.getAttribute("stroke-width") || "";
-                    pathEl.setAttribute("stroke", "#09f");
-                    pathEl.setAttribute("stroke-width", "1");
-                }
-            });
-            li.addEventListener("mouseleave", function () {
-                var pathEl = document.querySelector('#component-preview svg path[data-comp-index="' + idx + '"]');
-                if (pathEl) {
-                    pathEl.setAttribute("stroke", pathEl.dataset.origStroke || "none");
-                    if (pathEl.dataset.origWidth) pathEl.setAttribute("stroke-width", pathEl.dataset.origWidth);
-                    else pathEl.removeAttribute("stroke-width");
-                }
-            });
+            addHoverHandlers(li, idx);
             list.appendChild(li);
+        });
+
+        /* Sidebar group/ungroup toolbar */
+        if (selectedSet.length >= 2) {
+            var allUngrouped = selectedSet.every(function (i) { return !components[i].groupId; });
+            var gids = [];
+            selectedSet.forEach(function (i) {
+                var g = components[i] && components[i].groupId;
+                if (g && gids.indexOf(g) === -1) gids.push(g);
+            });
+            var allSameGroup = gids.length === 1 && selectedSet.every(function (i) { return components[i].groupId === gids[0]; });
+
+            if (allUngrouped || allSameGroup) {
+                var bar = document.createElement("div");
+                bar.style.cssText = "display:flex;gap:4px;padding:6px 0;";
+                if (allUngrouped) {
+                    var bg = document.createElement("button");
+                    bg.className = "btn";
+                    bg.textContent = "Group";
+                    bg.addEventListener("click", doGroup);
+                    bar.appendChild(bg);
+                }
+                if (allSameGroup) {
+                    var bu = document.createElement("button");
+                    bu.className = "btn";
+                    bu.textContent = "Ungroup";
+                    bu.addEventListener("click", doUngroup);
+                    bar.appendChild(bu);
+                }
+                list.appendChild(bar);
+            }
+        }
+    }
+
+    function addHoverHandlers(li, idx) {
+        li.addEventListener("mouseenter", function () {
+            var pathEl = document.querySelector('#component-preview svg path[data-comp-index="' + idx + '"]');
+            if (pathEl) {
+                pathEl.dataset.origStroke = pathEl.getAttribute("stroke");
+                pathEl.dataset.origWidth = pathEl.getAttribute("stroke-width") || "";
+                pathEl.setAttribute("stroke", "#09f");
+                pathEl.setAttribute("stroke-width", "1");
+            }
+        });
+        li.addEventListener("mouseleave", function () {
+            var pathEl = document.querySelector('#component-preview svg path[data-comp-index="' + idx + '"]');
+            if (pathEl) {
+                pathEl.setAttribute("stroke", pathEl.dataset.origStroke || "none");
+                if (pathEl.dataset.origWidth) pathEl.setAttribute("stroke-width", pathEl.dataset.origWidth);
+                else pathEl.removeAttribute("stroke-width");
+            }
         });
     }
 
@@ -198,9 +432,19 @@
                 pathEl.dataset.compIndex = String(idx);
                 pathEl.addEventListener("mousedown", function (e) {
                     e.stopPropagation();
-                    selectedIdx = idx;
-                    selectedSet = [];
-                    renderCanvas();
+                    var clickedComp = components[idx];
+                    if (clickedComp && clickedComp.groupId) {
+                        /* Select entire group */
+                        selectGroup(clickedComp.groupId);
+                        renderPlacedList();
+                        updateGroupToolbar();
+                    } else {
+                        selectedIdx = idx;
+                        selectedSet = [];
+                        renderCanvas();
+                        renderPlacedList();
+                        updateGroupToolbar();
+                    }
                 });
                 svg.appendChild(pathEl);
             });
@@ -748,6 +992,8 @@
                 });
                 selectedIdx = -1;
                 renderCanvas();
+                renderPlacedList();
+                updateGroupToolbar();
             }
             rubberBand = null;
         });
@@ -773,7 +1019,8 @@
                 x: c.x, y: c.y, w: c.w, h: c.h,
                 fontFamily: c.font_family || c.fontFamily || "Arial",
                 fontSize: c.font_size || c.fontSize || 8,
-                dataUri: c.dataUri || ""
+                dataUri: c.dataUri || "",
+                groupId: c.group_id || c.groupId || null
             };
             if (c.type === "pdfpath" && (c.path_data || c.pathData)) {
                 comp.pathData = typeof c.path_data === "string" ? JSON.parse(c.path_data) : (c.path_data || c.pathData);
@@ -782,7 +1029,19 @@
         });
         savedComponents = JSON.parse(JSON.stringify(components));
         selectedIdx = -1;
+        selectedSet = [];
         pan.x = 0; pan.y = 0; pan.zoom = 1;
+
+        /* Populate customer and template name fields */
+        var custSelect = document.getElementById("comp-customer");
+        var nameInput = document.getElementById("comp-tpl-name");
+        if (custSelect && tpl.customerId) {
+            custSelect.value = tpl.customerId;
+        }
+        if (nameInput && tpl.name) {
+            nameInput.value = tpl.name;
+        }
+
         renderPageTabs();
         renderCanvas();
     }
@@ -805,7 +1064,8 @@
                     page: c.page, partitionLabel: c.partitionLabel,
                     type: c.type, content: c.content,
                     x: c.x, y: c.y, w: c.w, h: c.h,
-                    fontFamily: c.fontFamily, fontSize: c.fontSize
+                    fontFamily: c.fontFamily, fontSize: c.fontSize,
+                    groupId: c.groupId || null
                 };
                 if (c.type === "pdfpath" && c.pathData) obj.pathData = c.pathData;
                 return obj;
@@ -967,14 +1227,21 @@
         /* Clear canvas */
         document.getElementById("btn-comp-clear").addEventListener("click", function () {
             compTpl = null; pdfFileName = "";
-            components = []; savedComponents = []; selectedIdx = -1;
+            components = []; savedComponents = []; selectedIdx = -1; selectedSet = [];
             compPage = 0; pan.x = 0; pan.y = 0; pan.zoom = 1;
             var preview = document.getElementById("component-preview");
-            preview.innerHTML = '<button class="btn-fit" id="btn-comp-fit" title="Fit">⊡</button><div class="preview-hint">Select a template or load a PDF.</div>';
+            preview.innerHTML = '<button class="btn-fit" id="btn-comp-fit" title="Fit">⊡</button><div class="group-toolbar" id="group-toolbar" style="display:none"><button id="btn-group" class="btn">Group</button><button id="btn-ungroup" class="btn">Ungroup</button></div><div class="preview-hint">Select a template or load a PDF.</div>';
             document.getElementById("btn-comp-fit").addEventListener("click", function () { pan.x = 0; pan.y = 0; pan.zoom = 1; renderCanvas(); });
+            document.getElementById("btn-group").addEventListener("click", doGroup);
+            document.getElementById("btn-ungroup").addEventListener("click", doUngroup);
             renderPageTabs();
             renderPlacedList();
+            updateGroupToolbar();
         });
+
+        /* Group / Ungroup buttons */
+        document.getElementById("btn-group").addEventListener("click", doGroup);
+        document.getElementById("btn-ungroup").addEventListener("click", doUngroup);
 
         /* Save / Reset */
         var saveBtn = document.getElementById("btn-comp-save");

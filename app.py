@@ -173,6 +173,16 @@ else:
         _mc.close()
     except Exception as e:
         print(f"pdfpath type migration failed: {e}")
+    # Migrate: add group_id column to components if missing
+    try:
+        _mc = sqlite3.connect(DB_PATH)
+        _ccols = [r[1] for r in _mc.execute("PRAGMA table_info(components)").fetchall()]
+        if "group_id" not in _ccols:
+            _mc.execute("ALTER TABLE components ADD COLUMN group_id TEXT DEFAULT NULL")
+            _mc.commit()
+        _mc.close()
+    except Exception as e:
+        print(f"group_id migration failed: {e}")
 
 
 @app.route("/")
@@ -462,14 +472,15 @@ def api_save_components(tid):
         out = []
         for i, c in enumerate(d.get("components", [])):
             path_data_json = json.dumps(c["pathData"]) if c.get("pathData") else None
+            group_id = c.get("groupId")
             cur = db.execute(
                 """INSERT INTO components
                    (template_id, partition_id, page, type, content, x, y, w, h,
-                    font_family, font_size, sort_order, path_data)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    font_family, font_size, sort_order, path_data, group_id)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (tid, c.get("partitionId"), c.get("page", 0), c["type"],
                  c.get("content", ""), c["x"], c["y"], c["w"], c["h"],
-                 c.get("fontFamily", "Arial"), c.get("fontSize", 8), i, path_data_json)
+                 c.get("fontFamily", "Arial"), c.get("fontSize", 8), i, path_data_json, group_id)
             )
             out.append({"id": cur.lastrowid, "template_id": tid,
                          "partition_id": c.get("partitionId"),
@@ -478,7 +489,8 @@ def api_save_components(tid):
                          "x": c["x"], "y": c["y"], "w": c["w"], "h": c["h"],
                          "font_family": c.get("fontFamily", "Arial"),
                          "font_size": c.get("fontSize", 8), "sort_order": i,
-                         "path_data": c.get("pathData")})
+                         "path_data": c.get("pathData"),
+                         "group_id": group_id})
         db.commit()
         db.close()
         return jsonify(out)
