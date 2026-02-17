@@ -203,8 +203,40 @@
             toggle.textContent = isCollapsed ? "▶" : "▼";
             header.appendChild(toggle);
             var label = document.createElement("span");
+            label.style.flex = "1";
             label.textContent = "Group " + (gIndex + 1) + " (" + groupItems.length + ")";
             header.appendChild(label);
+
+            /* Group-level eye toggle */
+            var allHidden = groupItems.every(function (item) { return item.comp.visible === false; });
+            var grpEye = document.createElement("button");
+            grpEye.className = "eye-btn" + (allHidden ? " off" : "");
+            grpEye.innerHTML = allHidden ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><path d="M3 12c2-3 5-6 9-6s7 3 9 6"/><line x1="3" y1="12" x2="5" y2="15"/><line x1="8" y1="14" x2="8" y2="17"/><line x1="12" y1="14.5" x2="12" y2="18"/><line x1="16" y1="14" x2="16" y2="17"/><line x1="21" y1="12" x2="19" y2="15"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3" fill="#000"/></svg>';
+            grpEye.title = allHidden ? "Show all" : "Hide all";
+            grpEye.addEventListener("click", function (e) {
+                e.stopPropagation();
+                var newVal = allHidden;
+                groupItems.forEach(function (item) { components[item.idx].visible = newVal; });
+                renderCanvas();
+                renderPlacedList();
+            });
+            header.appendChild(grpEye);
+
+            /* Group-level lock toggle */
+            var allLocked = groupItems.every(function (item) { return !!item.comp.locked; });
+            var grpLock = document.createElement("button");
+            grpLock.className = "lock-btn" + (allLocked ? " on" : "");
+            grpLock.innerHTML = allLocked ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0" /></svg>';
+            grpLock.title = allLocked ? "Unlock all" : "Lock all";
+            grpLock.addEventListener("click", function (e) {
+                e.stopPropagation();
+                var newVal = !allLocked;
+                groupItems.forEach(function (item) { components[item.idx].locked = newVal; });
+                renderCanvas();
+                renderPlacedList();
+            });
+            header.appendChild(grpLock);
+
             header.addEventListener("click", function (e) {
                 if (e.target === toggle) {
                     /* Toggle collapse */
