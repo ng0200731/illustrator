@@ -56,16 +56,32 @@ def generate_ai(data, output_path, outlined=False):
     c.setLineWidth(0.5)
     c.rect(0, 0, page_w, page_h)
 
+    # Separate components into visible and hidden pdfpaths, and others
+    visible_paths = []
+    hidden_paths = []
+    other_comps = []
     for comp in components:
+        if comp.get("type") == "pdfpath":
+            if comp.get("visible", True):
+                visible_paths.append(comp)
+            else:
+                hidden_paths.append(comp)
+        else:
+            other_comps.append(comp)
+
+    # Draw visible pdfpaths
+    for comp in visible_paths:
+        _draw_pdfpath(c, comp, page_h)
+
+    # Draw other components
+    for comp in other_comps:
         comp_type = comp.get("type", "")
         x = comp.get("x", 0) * mm
-        y = page_h - comp.get("y", 0) * mm  # top-left to bottom-left
+        y = page_h - comp.get("y", 0) * mm
         w = comp.get("width", 0) * mm
         h = comp.get("height", 0) * mm
 
-        if comp_type == "pdfpath":
-            _draw_pdfpath(c, comp, page_h)
-        elif comp_type in ("text", "paragraph"):
+        if comp_type in ("text", "paragraph"):
             if outlined:
                 _draw_outlined_text(c, comp, x, y, w, h, page_h)
             else:
@@ -76,6 +92,15 @@ def generate_ai(data, output_path, outlined=False):
             _draw_barcode(c, comp, x, y, w, h)
         elif comp_type == "qrcode":
             _draw_qrcode(c, comp, x, y, w, h)
+
+    # Draw hidden pdfpaths with reduced opacity on a separate state
+    if hidden_paths:
+        c.saveState()
+        c.setFillAlpha(0.15)
+        c.setStrokeAlpha(0.15)
+        for comp in hidden_paths:
+            _draw_pdfpath(c, comp, page_h)
+        c.restoreState()
 
     c.save()
 

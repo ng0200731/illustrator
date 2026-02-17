@@ -232,6 +232,30 @@
                 var span = document.createElement("span");
                 span.textContent = c.type + ": " + (c.content || "").substring(0, 20);
                 li.appendChild(span);
+                if (c.type === "pdfpath") {
+                    var eye = document.createElement("button");
+                    eye.className = "eye-btn" + (c.visible === false ? " off" : "");
+                    eye.innerHTML = c.visible === false ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><path d="M3 12c2-3 5-6 9-6s7 3 9 6"/><line x1="3" y1="12" x2="5" y2="15"/><line x1="8" y1="14" x2="8" y2="17"/><line x1="12" y1="14.5" x2="12" y2="18"/><line x1="16" y1="14" x2="16" y2="17"/><line x1="21" y1="12" x2="19" y2="15"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3" fill="#000"/></svg>';
+                    eye.title = c.visible === false ? "Hidden" : "Visible";
+                    eye.addEventListener("click", function (e) {
+                        e.stopPropagation();
+                        components[idx].visible = !(components[idx].visible !== false);
+                        renderCanvas();
+                        renderPlacedList();
+                    });
+                    li.appendChild(eye);
+                    var lock = document.createElement("button");
+                    lock.className = "lock-btn" + (c.locked ? " on" : "");
+                    lock.innerHTML = c.locked ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0" /></svg>';
+                    lock.title = c.locked ? "Locked" : "Unlocked";
+                    lock.addEventListener("click", function (e) {
+                        e.stopPropagation();
+                        components[idx].locked = !components[idx].locked;
+                        renderCanvas();
+                        renderPlacedList();
+                    });
+                    li.appendChild(lock);
+                }
                 var del = document.createElement("button");
                 del.className = "delete-btn";
                 del.textContent = "×";
@@ -270,6 +294,30 @@
             var span = document.createElement("span");
             span.textContent = c.type + ": " + (c.content || "").substring(0, 20);
             li.appendChild(span);
+            if (c.type === "pdfpath") {
+                var eye = document.createElement("button");
+                eye.className = "eye-btn" + (c.visible === false ? " off" : "");
+                eye.innerHTML = c.visible === false ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><path d="M3 12c2-3 5-6 9-6s7 3 9 6"/><line x1="3" y1="12" x2="5" y2="15"/><line x1="8" y1="14" x2="8" y2="17"/><line x1="12" y1="14.5" x2="12" y2="18"/><line x1="16" y1="14" x2="16" y2="17"/><line x1="21" y1="12" x2="19" y2="15"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3" fill="#000"/></svg>';
+                eye.title = c.visible === false ? "Hidden" : "Visible";
+                eye.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    components[idx].visible = !(components[idx].visible !== false);
+                    renderCanvas();
+                    renderPlacedList();
+                });
+                li.appendChild(eye);
+                var lock = document.createElement("button");
+                lock.className = "lock-btn" + (c.locked ? " on" : "");
+                lock.innerHTML = c.locked ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0" /></svg>';
+                lock.title = c.locked ? "Locked" : "Unlocked";
+                lock.addEventListener("click", function (e) {
+                    e.stopPropagation();
+                    components[idx].locked = !components[idx].locked;
+                    renderCanvas();
+                    renderPlacedList();
+                });
+                li.appendChild(lock);
+            }
             var del = document.createElement("button");
             del.className = "delete-btn";
             del.textContent = "×";
@@ -425,7 +473,8 @@
                 if (sl) pathEl.setAttribute("stroke-width", String(r(c.pathData.lw || 0.3)));
                 pathEl.setAttribute("stroke-linecap", "round");
                 pathEl.setAttribute("stroke-linejoin", "round");
-                pathEl.style.cursor = "pointer";
+                pathEl.style.cursor = c.locked ? "not-allowed" : "pointer";
+                if (c.visible === false) pathEl.style.opacity = "0.15";
                 if (idx === selectedIdx || selectedSet.indexOf(idx) >= 0) {
                     pathEl.setAttribute("filter", "url(#sel-outline)");
                 }
@@ -433,6 +482,7 @@
                 pathEl.addEventListener("mousedown", function (e) {
                     e.stopPropagation();
                     var clickedComp = components[idx];
+                    if (clickedComp.locked) return;
                     if (clickedComp && clickedComp.groupId) {
                         /* Select entire group */
                         selectGroup(clickedComp.groupId);
@@ -597,6 +647,7 @@
         if (!dragState) return;
         var esc = sc * pan.zoom;
         var c = components[dragState.idx];
+        if (c.locked) return;
         c.x = dragState.origX + (e.clientX - dragState.startX) / esc;
         c.y = dragState.origY + (e.clientY - dragState.startY) / esc;
         clampToPartition(c);
@@ -985,6 +1036,7 @@
                 selectedSet = [];
                 components.forEach(function (c, i) {
                     if (c.type !== "pdfpath") return;
+                    if (c.locked) return;
                     /* Check bbox intersection */
                     if (c.x + c.w >= sx && c.x <= ex && c.y + c.h >= sy && c.y <= ey) {
                         selectedSet.push(i);
@@ -1020,7 +1072,9 @@
                 fontFamily: c.font_family || c.fontFamily || "Arial",
                 fontSize: c.font_size || c.fontSize || 8,
                 dataUri: c.dataUri || "",
-                groupId: c.group_id || c.groupId || null
+                groupId: c.group_id || c.groupId || null,
+                visible: c.visible !== false && c.visible !== 0,
+                locked: !!(c.locked)
             };
             if (c.type === "pdfpath" && (c.path_data || c.pathData)) {
                 comp.pathData = typeof c.path_data === "string" ? JSON.parse(c.path_data) : (c.path_data || c.pathData);
@@ -1065,7 +1119,9 @@
                     type: c.type, content: c.content,
                     x: c.x, y: c.y, w: c.w, h: c.h,
                     fontFamily: c.fontFamily, fontSize: c.fontSize,
-                    groupId: c.groupId || null
+                    groupId: c.groupId || null,
+                    visible: c.visible !== false && c.visible !== 0,
+                    locked: !!c.locked
                 };
                 if (c.type === "pdfpath" && c.pathData) obj.pathData = c.pathData;
                 return obj;
@@ -1150,6 +1206,7 @@
                 };
                 if (c.type === "pdfpath" && c.pathData) {
                     obj.pathData = c.pathData;
+                    obj.visible = c.visible !== false;
                 }
                 return obj;
             }),

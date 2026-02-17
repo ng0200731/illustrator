@@ -950,11 +950,58 @@ tbody tr:hover {
     margin-bottom: 3px;
     font-size: 11px;
 }
+.component-list-item > span {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 
 .component-list-item .delete-btn {
     padding: 1px 6px;
     font-size: 11px;
     margin: 0;
+}
+
+.component-list-item .eye-btn {
+    padding: 0;
+    margin: 0 2px;
+    background: none;
+    border: 1px solid #999;
+    cursor: pointer;
+    width: 20px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.component-list-item .eye-btn.off {
+    opacity: 0.3;
+}
+.component-list-item .eye-btn:hover {
+    border-color: #000;
+}
+
+.component-list-item .lock-btn {
+    padding: 0;
+    margin: 0 2px;
+    background: none;
+    border: 1px solid #999;
+    cursor: pointer;
+    width: 20px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    opacity: 0.4;
+}
+.component-list-item .lock-btn.on {
+    opacity: 1;
+}
+.component-list-item .lock-btn:hover {
+    border-color: #000;
 }
 
 /* Group tree styles */

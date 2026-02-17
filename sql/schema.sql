@@ -75,5 +75,7 @@ CREATE TABLE IF NOT EXISTS components (
     font_size REAL DEFAULT 8,
     sort_order INTEGER DEFAULT 0,
     path_data TEXT DEFAULT NULL,
-    group_id TEXT DEFAULT NULL
+    group_id TEXT DEFAULT NULL,
+    visible INTEGER DEFAULT 1,
+    locked INTEGER DEFAULT 0
 );

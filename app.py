@@ -184,6 +184,28 @@ else:
     except Exception as e:
         print(f"group_id migration failed: {e}")
 
+    # Migrate: add visible column to components if missing
+    try:
+        _mc = sqlite3.connect(DB_PATH)
+        _ccols = [r[1] for r in _mc.execute("PRAGMA table_info(components)").fetchall()]
+        if "visible" not in _ccols:
+            _mc.execute("ALTER TABLE components ADD COLUMN visible INTEGER DEFAULT 1")
+            _mc.commit()
+        _mc.close()
+    except Exception as e:
+        print(f"visible migration failed: {e}")
+
+    # Migrate: add locked column to components if missing
+    try:
+        _mc = sqlite3.connect(DB_PATH)
+        _ccols = [r[1] for r in _mc.execute("PRAGMA table_info(components)").fetchall()]
+        if "locked" not in _ccols:
+            _mc.execute("ALTER TABLE components ADD COLUMN locked INTEGER DEFAULT 0")
+            _mc.commit()
+        _mc.close()
+    except Exception as e:
+        print(f"locked migration failed: {e}")
+
 
 @app.route("/")
 def index():
@@ -473,14 +495,16 @@ def api_save_components(tid):
         for i, c in enumerate(d.get("components", [])):
             path_data_json = json.dumps(c["pathData"]) if c.get("pathData") else None
             group_id = c.get("groupId")
+            visible = 1 if c.get("visible", True) else 0
+            locked = 1 if c.get("locked", False) else 0
             cur = db.execute(
                 """INSERT INTO components
                    (template_id, partition_id, page, type, content, x, y, w, h,
-                    font_family, font_size, sort_order, path_data, group_id)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                    font_family, font_size, sort_order, path_data, group_id, visible, locked)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (tid, c.get("partitionId"), c.get("page", 0), c["type"],
                  c.get("content", ""), c["x"], c["y"], c["w"], c["h"],
-                 c.get("fontFamily", "Arial"), c.get("fontSize", 8), i, path_data_json, group_id)
+                 c.get("fontFamily", "Arial"), c.get("fontSize", 8), i, path_data_json, group_id, visible, locked)
             )
             out.append({"id": cur.lastrowid, "template_id": tid,
                          "partition_id": c.get("partitionId"),
@@ -490,7 +514,9 @@ def api_save_components(tid):
                          "font_family": c.get("fontFamily", "Arial"),
                          "font_size": c.get("fontSize", 8), "sort_order": i,
                          "path_data": c.get("pathData"),
-                         "group_id": group_id})
+                         "group_id": group_id,
+                         "visible": bool(visible),
+                         "locked": bool(locked)})
         db.commit()
         db.close()
         return jsonify(out)
