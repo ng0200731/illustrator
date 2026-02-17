@@ -266,6 +266,45 @@ body {
     overflow: hidden;
 }
 
+/* ===== Sub-sub-tabs ===== */
+.sub-sub-tab-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 6px;
+    margin-left: 8px;
+    flex-shrink: 0;
+}
+
+.sub-sub-tab {
+    padding: 3px 10px;
+    font-size: 10px;
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid #ddd;
+    background: #fafafa;
+    color: #666;
+    text-decoration: none;
+}
+
+.sub-sub-tab:hover { background: #eee; }
+.sub-sub-tab.disabled { opacity: 0.3; pointer-events: none; }
+
+.sub-sub-tab.active {
+    background: #000;
+    color: #fff;
+    border-color: #000;
+}
+
+.sub-sub-tab-content { display: none; }
+
+.sub-sub-tab-content.active {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
 /* ===== Expandable member rows ===== */
 .member-toggle {
     cursor: pointer;

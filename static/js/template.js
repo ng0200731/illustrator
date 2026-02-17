@@ -5,13 +5,17 @@
     var tplScale = 3;
 
     App.enforceSewingMin = function () {
-        var pos = document.getElementById("tpl-sew-position").value;
+        var posEl = document.getElementById("tpl-sew-position");
         var distInput = document.getElementById("tpl-sew-distance");
+        if (!posEl || !distInput) return;
+        var pos = posEl.value;
         if (pos === "none") {
             distInput.min = "0";
             return;
         }
-        var padVal = parseFloat(document.getElementById("tpl-pad-" + pos).value) || 0;
+        var padInput = document.getElementById("tpl-pad-" + pos);
+        if (!padInput) return;
+        var padVal = parseFloat(padInput.value) || 0;
         distInput.min = padVal;
         if (parseFloat(distInput.value) < padVal) {
             distInput.value = padVal;
@@ -134,7 +138,8 @@
             folding: {
                 type: lineType === "fold" ? "mid" : "none",
                 padding: parseFloat(document.getElementById("tpl-fold-padding").value) || 0
-            }
+            },
+            source: "drawing"
         };
     };
 
@@ -525,7 +530,10 @@
             App.refreshTemplateSelects("comp-tpl-select");
             var bar = document.querySelector('#tab-template-create .sub-tab-bar');
             bar.querySelectorAll('.sub-tab.disabled').forEach(function (s) { s.classList.remove('disabled'); });
-            App.switchToSubTab("tab-template-create", "tpl-partition");
+            var drawingBar = document.querySelector('#subtab-tpl-drawing .sub-sub-tab-bar');
+            if (drawingBar) drawingBar.querySelectorAll('.sub-sub-tab.disabled').forEach(function (s) { s.classList.remove('disabled'); });
+            App.switchToSubTab("tab-template-create", "tpl-drawing");
+            App.switchToSubSubTab("subtab-tpl-drawing", "tpl-partition");
             document.getElementById("partition-tpl-name").textContent = saved.name;
             App.activePartitionTpl = saved;
             App.activePartitionPage = 0;
@@ -676,8 +684,11 @@
 
         var bar = document.querySelector('#tab-template-create .sub-tab-bar');
         bar.querySelectorAll('.sub-tab.disabled').forEach(function (s) { s.classList.remove('disabled'); });
+        var drawingBar = document.querySelector('#subtab-tpl-drawing .sub-sub-tab-bar');
+        if (drawingBar) drawingBar.querySelectorAll('.sub-sub-tab.disabled').forEach(function (s) { s.classList.remove('disabled'); });
 
-        App.switchToSubTab("tab-template-create", "tpl-setup");
+        App.switchToSubTab("tab-template-create", "tpl-drawing");
+        App.switchToSubSubTab("subtab-tpl-drawing", "tpl-setup");
         document.getElementById("partition-tpl-name").textContent = t.name;
 
         App.enforceSewingMin();
@@ -694,7 +705,7 @@
             var cust = App.store.customers.find(function (c) { return c.id === parseInt(t.customerId); });
             var custName = cust ? cust.company : "\u2014";
             var tr = document.createElement("tr");
-            tr.innerHTML = "<td>" + App.esc(t.name) + "</td><td>" + App.esc(custName) + "</td><td>" + t.width + "x" + t.height + " mm</td><td>" + App.esc(t.orientation) + "</td><td>" + App.esc(t.folding.type) + "</td><td>" + t.partitions.length + "</td><td><button class='btn-outline' style='padding:2px 8px;font-size:11px'>Delete</button></td>";
+            tr.innerHTML = "<td>" + App.esc(t.name) + "</td><td>" + App.esc(custName) + "</td><td>" + t.width + "x" + t.height + " mm</td><td>" + App.esc(t.orientation) + "</td><td>" + App.esc(t.folding.type) + "</td><td>" + App.esc(t.source || "drawing") + "</td><td>" + t.partitions.length + "</td><td><button class='btn-outline' style='padding:2px 8px;font-size:11px'>Delete</button></td>";
             tr.querySelector("button").addEventListener("click", function (e) {
                 e.stopPropagation();
                 App.api("DELETE", "/api/templates/" + t.id).then(function () {
@@ -704,7 +715,20 @@
             });
             tr.style.cursor = "pointer";
             tr.addEventListener("dblclick", function () {
-                App.loadTemplateForEditing(t);
+                if (t.source === "pdf") {
+                    /* Load into PDF tab */
+                    var sec = document.getElementById("section-template");
+                    sec.querySelectorAll(".tab").forEach(function (tab) { tab.classList.remove("active"); });
+                    sec.querySelectorAll(":scope > .tab-content").forEach(function (tc) { tc.classList.remove("active"); });
+                    sec.querySelector('.tab[data-tab="template-create"]').classList.add("active");
+                    document.getElementById("tab-template-create").classList.add("active");
+                    App.switchToSubTab("tab-template-create", "tpl-pdf");
+                    App.switchToSubSubTab("subtab-tpl-pdf", "tpl-component");
+                    if (App.loadComponentTemplate) App.loadComponentTemplate(t.id);
+                } else {
+                    /* Load into Drawing tab */
+                    App.loadTemplateForEditing(t);
+                }
             });
             tbody.appendChild(tr);
         });

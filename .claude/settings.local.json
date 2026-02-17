@@ -5,7 +5,12 @@
       "mcp__memory__read_graph",
       "WebFetch(domain:cdn.jsdelivr.net)",
       "WebFetch(domain:data.jsdelivr.com)",
-      "Bash(node -e:*)"
+      "Bash(node -e:*)",
+      "Bash(py -c:*)"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "memory"
+  ]
 }

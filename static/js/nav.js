@@ -86,9 +86,29 @@
             if (target) target.classList.add("active");
             if (st.dataset.subtab === "cust-member") App.refreshCustomerSelects();
             if (st.dataset.subtab === "sup-member") App.refreshSupplierSelects();
-            if (st.dataset.subtab === "tpl-component") App.refreshTemplateSelects("comp-tpl-select");
-            if (st.dataset.subtab === "tpl-setup") App.renderTemplatePreview();
-            if (st.dataset.subtab === "tpl-partition") App.renderPartitionCanvas();
+            if (st.dataset.subtab === "tpl-drawing") {
+                var activeSST = document.querySelector('#subtab-tpl-drawing .sub-sub-tab.active');
+                if (activeSST && activeSST.dataset.subsubtab === "tpl-setup") App.renderTemplatePreview();
+                if (activeSST && activeSST.dataset.subsubtab === "tpl-partition") App.renderPartitionCanvas();
+            }
+            if (st.dataset.subtab === "tpl-pdf") App.refreshTemplateSelects("comp-tpl-select");
+        });
+    });
+
+    /* Sub-sub-tab click handler */
+    document.querySelectorAll(".sub-sub-tab-bar .sub-sub-tab").forEach(function (sst) {
+        sst.addEventListener("click", function () {
+            if (sst.classList.contains("disabled")) return;
+            var bar = sst.parentElement;
+            bar.querySelectorAll(".sub-sub-tab").forEach(function (s) { s.classList.remove("active"); });
+            sst.classList.add("active");
+            var subTabContent = sst.closest(".sub-tab-content");
+            subTabContent.querySelectorAll(":scope > .sub-sub-tab-content").forEach(function (sc) { sc.classList.remove("active"); });
+            var target = document.getElementById("subtab-" + sst.dataset.subsubtab);
+            if (target) target.classList.add("active");
+            if (sst.dataset.subsubtab === "tpl-component") App.refreshTemplateSelects("comp-tpl-select");
+            if (sst.dataset.subsubtab === "tpl-setup") App.renderTemplatePreview();
+            if (sst.dataset.subsubtab === "tpl-partition") App.renderPartitionCanvas();
         });
     });
 
@@ -101,5 +121,16 @@
         if (subtabBtn) subtabBtn.classList.add("active");
         var subtabPanel = document.getElementById("subtab-" + subtabId);
         if (subtabPanel) subtabPanel.classList.add("active");
+    };
+
+    App.switchToSubSubTab = function (subTabContentId, subsubtabId) {
+        var container = document.getElementById(subTabContentId);
+        if (!container) return;
+        container.querySelectorAll(".sub-sub-tab-bar .sub-sub-tab").forEach(function (s) { s.classList.remove("active"); });
+        container.querySelectorAll(":scope > .sub-sub-tab-content").forEach(function (sc) { sc.classList.remove("active"); });
+        var btn = container.querySelector('.sub-sub-tab[data-subsubtab="' + subsubtabId + '"]');
+        if (btn) btn.classList.add("active");
+        var panel = document.getElementById("subtab-" + subsubtabId);
+        if (panel) panel.classList.add("active");
     };
 })();

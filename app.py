@@ -51,7 +51,8 @@ def _template_to_dict(row, partitions, components=None):
         },
         "partitions": [dict(p) for p in partitions],
         "components": [dict(c) for c in (components or [])],
-        "bgImage": row["bg_image"] or ""
+        "bgImage": row["bg_image"] or "",
+        "source": row["source"] if "source" in row.keys() else "drawing"
     }
 
 
@@ -93,6 +94,16 @@ else:
         _mc.close()
     except Exception as e:
         print(f"Locked migration failed: {e}")
+    # Migrate: add source column to templates if missing
+    try:
+        _mc = sqlite3.connect(DB_PATH)
+        _cols2 = [r[1] for r in _mc.execute("PRAGMA table_info(templates)").fetchall()]
+        if "source" not in _cols2:
+            _mc.execute("ALTER TABLE templates ADD COLUMN source TEXT DEFAULT 'drawing'")
+            _mc.commit()
+        _mc.close()
+    except Exception as e:
+        print(f"Source migration failed: {e}")
     # Migrate: create components table if missing
     try:
         _mc = sqlite3.connect(DB_PATH)
@@ -117,6 +128,51 @@ else:
         _mc.close()
     except Exception as e:
         print(f"Components migration failed: {e}")
+    # Migrate: add path_data column to components if missing
+    try:
+        _mc = sqlite3.connect(DB_PATH)
+        _ccols = [r[1] for r in _mc.execute("PRAGMA table_info(components)").fetchall()]
+        if "path_data" not in _ccols:
+            _mc.execute("ALTER TABLE components ADD COLUMN path_data TEXT DEFAULT NULL")
+            _mc.commit()
+        _mc.close()
+    except Exception as e:
+        print(f"path_data migration failed: {e}")
+    # Migrate: update components type constraint to include pdfpath (requires recreate)
+    try:
+        _mc = sqlite3.connect(DB_PATH)
+        # Check if pdfpath is already in the constraint by trying to insert a test row
+        _mc.execute("BEGIN")
+        try:
+            _mc.execute("INSERT INTO components (template_id, type) VALUES (-1, 'pdfpath')")
+            _mc.execute("DELETE FROM components WHERE template_id = -1")
+            _mc.execute("ROLLBACK")
+        except:
+            # Constraint doesn't include pdfpath, need to recreate table
+            _mc.execute("ROLLBACK")
+            _mc.execute("""CREATE TABLE components_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                template_id INTEGER NOT NULL REFERENCES templates(id) ON DELETE CASCADE,
+                partition_id INTEGER REFERENCES partitions(id) ON DELETE SET NULL,
+                page INTEGER NOT NULL DEFAULT 0,
+                type TEXT NOT NULL CHECK(type IN ('text','paragraph','barcode','qrcode','image','pdfpath')),
+                content TEXT DEFAULT '',
+                x REAL NOT NULL DEFAULT 0,
+                y REAL NOT NULL DEFAULT 0,
+                w REAL NOT NULL DEFAULT 20,
+                h REAL NOT NULL DEFAULT 10,
+                font_family TEXT DEFAULT 'Arial',
+                font_size REAL DEFAULT 8,
+                sort_order INTEGER DEFAULT 0,
+                path_data TEXT DEFAULT NULL
+            )""")
+            _mc.execute("INSERT INTO components_new SELECT id, template_id, partition_id, page, type, content, x, y, w, h, font_family, font_size, sort_order, path_data FROM components")
+            _mc.execute("DROP TABLE components")
+            _mc.execute("ALTER TABLE components_new RENAME TO components")
+            _mc.commit()
+        _mc.close()
+    except Exception as e:
+        print(f"pdfpath type migration failed: {e}")
 
 
 @app.route("/")
@@ -276,14 +332,14 @@ def api_create_template():
             pad_top, pad_bottom, pad_left, pad_right,
             sew_position, sew_distance, sew_padding,
             fold_type, fold_padding,
-            print_x, print_y, print_w, print_h, bg_image)
-           VALUES (?,?,?,?,?, ?,?,?,?, ?,?,?, ?,?, ?,?,?,?, ?)""",
+            print_x, print_y, print_w, print_h, bg_image, source)
+           VALUES (?,?,?,?,?, ?,?,?,?, ?,?,?, ?,?, ?,?,?,?, ?,?)""",
         (d["customerId"], d["name"], d["width"], d["height"], d["orientation"],
          pad.get("top", 0), pad.get("bottom", 0), pad.get("left", 0), pad.get("right", 0),
          sew.get("position", "none"), sew.get("distance", 0), sew.get("padding", 0),
          fold.get("type", "none"), fold.get("padding", 0),
          pa.get("x", 0), pa.get("y", 0), pa.get("w", 0), pa.get("h", 0),
-         d.get("bgImage", ""))
+         d.get("bgImage", ""), d.get("source", "drawing"))
     )
     tid = cur.lastrowid
     parts_out = []
@@ -327,14 +383,14 @@ def api_update_template(tid):
                pad_top=?, pad_bottom=?, pad_left=?, pad_right=?,
                sew_position=?, sew_distance=?, sew_padding=?,
                fold_type=?, fold_padding=?,
-               print_x=?, print_y=?, print_w=?, print_h=?, bg_image=?
+               print_x=?, print_y=?, print_w=?, print_h=?, bg_image=?, source=?
                WHERE id=?""",
             (d["customerId"], d["name"], d["width"], d["height"], d["orientation"],
              pad.get("top", 0), pad.get("bottom", 0), pad.get("left", 0), pad.get("right", 0),
              sew.get("position", "none"), sew.get("distance", 0), sew.get("padding", 0),
              fold.get("type", "none"), fold.get("padding", 0),
              pa.get("x", 0), pa.get("y", 0), pa.get("w", 0), pa.get("h", 0),
-             d.get("bgImage", ""),
+             d.get("bgImage", ""), d.get("source", "drawing"),
              tid)
         )
         db.execute("DELETE FROM partitions WHERE template_id=?", (tid,))
@@ -400,17 +456,19 @@ def api_get_components(tid):
 def api_save_components(tid):
     d = request.get_json()
     db = get_db()
+    db.execute("UPDATE templates SET source='pdf' WHERE id=?", (tid,))
     db.execute("DELETE FROM components WHERE template_id=?", (tid,))
     out = []
     for i, c in enumerate(d.get("components", [])):
+        path_data_json = json.dumps(c["pathData"]) if c.get("pathData") else None
         cur = db.execute(
             """INSERT INTO components
                (template_id, partition_id, page, type, content, x, y, w, h,
-                font_family, font_size, sort_order)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                font_family, font_size, sort_order, path_data)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (tid, c.get("partitionId"), c.get("page", 0), c["type"],
              c.get("content", ""), c["x"], c["y"], c["w"], c["h"],
-             c.get("fontFamily", "Arial"), c.get("fontSize", 8), i)
+             c.get("fontFamily", "Arial"), c.get("fontSize", 8), i, path_data_json)
         )
         out.append({"id": cur.lastrowid, "template_id": tid,
                      "partition_id": c.get("partitionId"),
@@ -418,7 +476,8 @@ def api_save_components(tid):
                      "content": c.get("content", ""),
                      "x": c["x"], "y": c["y"], "w": c["w"], "h": c["h"],
                      "font_family": c.get("fontFamily", "Arial"),
-                     "font_size": c.get("fontSize", 8), "sort_order": i})
+                     "font_size": c.get("fontSize", 8), "sort_order": i,
+                     "path_data": c.get("pathData")})
     db.commit()
     db.close()
     return jsonify(out)

@@ -175,16 +175,22 @@
                     <a class="tab" data-tab="template-view">View All</a>
                 </div>
 
-                <!-- Create: Template → Partition → Component sub-tabs -->
+                <!-- Create: Drawing / PDF sub-tabs -->
                 <div class="tab-content active" id="tab-template-create">
                     <div class="sub-tab-bar">
-                        <a class="sub-tab active" data-subtab="tpl-setup">Template</a>
-                        <a class="sub-tab disabled" data-subtab="tpl-partition">Partition</a>
-                        <a class="sub-tab disabled" data-subtab="tpl-component">Component</a>
+                        <a class="sub-tab active" data-subtab="tpl-drawing">Drawing</a>
+                        <a class="sub-tab" data-subtab="tpl-pdf">PDF</a>
                     </div>
 
-                    <!-- Sub-tab: Template setup -->
-                    <div class="sub-tab-content active" id="subtab-tpl-setup">
+                    <!-- Sub-tab: Drawing -->
+                    <div class="sub-tab-content active" id="subtab-tpl-drawing">
+                        <div class="sub-sub-tab-bar">
+                            <a class="sub-sub-tab active" data-subsubtab="tpl-setup">Template</a>
+                            <a class="sub-sub-tab disabled" data-subsubtab="tpl-partition">Partition</a>
+                        </div>
+
+                    <!-- Sub-sub-tab: Template setup -->
+                    <div class="sub-sub-tab-content active" id="subtab-tpl-setup">
                         <div class="template-layout">
                             <div class="template-form" style="width:200px">
                                 <form id="form-template-create" autocomplete="off">
@@ -260,8 +266,8 @@
                         </div>
                     </div>
 
-                    <!-- Sub-tab: Partition -->
-                    <div class="sub-tab-content" id="subtab-tpl-partition">
+                    <!-- Sub-sub-tab: Partition -->
+                    <div class="sub-sub-tab-content" id="subtab-tpl-partition">
                         <div class="template-layout">
                             <div class="template-form" style="width:200px">
                                 <label>Template</label>
@@ -291,13 +297,22 @@
                             </div>
                         </div>
                     </div>
+                    </div><!-- /subtab-tpl-drawing -->
 
-                    <!-- Sub-tab: Component -->
-                    <div class="sub-tab-content" id="subtab-tpl-component">
+                    <!-- Sub-tab: PDF -->
+                    <div class="sub-tab-content" id="subtab-tpl-pdf">
+                        <div class="sub-sub-tab-bar">
+                            <a class="sub-sub-tab active" data-subsubtab="tpl-component">Component</a>
+                        </div>
+
+                    <!-- Sub-sub-tab: Component -->
+                    <div class="sub-sub-tab-content active" id="subtab-tpl-component">
                         <div class="template-layout">
                             <div class="template-form" style="width:200px">
-                                <label for="comp-tpl-select">Template</label>
-                                <select id="comp-tpl-select"></select>
+                                <label for="comp-customer">Customer</label>
+                                <select id="comp-customer"></select>
+                                <label for="comp-tpl-name">Template Name</label>
+                                <input type="text" id="comp-tpl-name">
                                 <div style="margin-top:8px">
                                     <label class="btn" style="cursor:pointer;display:inline-block">Load PDF<input type="file" id="comp-pdf-input" accept=".pdf" style="display:none"></label>
                                     <button id="btn-comp-clear" class="btn">Clear</button>
@@ -327,16 +342,15 @@
                             </div>
                         </div>
                     </div>
+                    </div><!-- /subtab-tpl-pdf -->
                 </div>
-
-                <!-- View All -->
                 <div class="tab-content" id="tab-template-view">
                     <div class="table-toolbar">
                         <input type="text" id="tpl-search" placeholder="Search templates...">
                     </div>
                     <div class="table-wrap">
                         <table id="table-templates">
-                            <thead><tr><th>Name</th><th>Customer</th><th>Size</th><th>Orientation</th><th>Fold</th><th>Partitions</th><th></th></tr></thead>
+                            <thead><tr><th>Name</th><th>Customer</th><th>Size</th><th>Orientation</th><th>Fold</th><th>Source</th><th>Partitions</th><th></th></tr></thead>
                             <tbody></tbody>
                         </table>
                     </div>

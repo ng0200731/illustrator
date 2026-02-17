@@ -681,7 +681,7 @@
         compTpl = tpl;
         compPage = 0;
         components = (tpl.components || []).map(function (c) {
-            return {
+            var comp = {
                 page: c.page || 0, partitionLabel: c.partition_label || c.partitionLabel || "",
                 type: c.type, content: c.content || "",
                 x: c.x, y: c.y, w: c.w, h: c.h,
@@ -689,6 +689,10 @@
                 fontSize: c.font_size || c.fontSize || 8,
                 dataUri: c.dataUri || ""
             };
+            if (c.type === "pdfpath" && (c.path_data || c.pathData)) {
+                comp.pathData = typeof c.path_data === "string" ? JSON.parse(c.path_data) : (c.path_data || c.pathData);
+            }
+            return comp;
         });
         savedComponents = JSON.parse(JSON.stringify(components));
         selectedIdx = -1;
@@ -699,24 +703,66 @@
 
     /* ===== Save / Reset ===== */
     function saveComponents() {
-        if (!compTpl) return;
-        if (!compTpl.id) { App.showToast("Cannot save PDF-imported layout to a template", true); return; }
-        var payload = {
+        console.log("saveComponents called, compTpl:", compTpl, "components.length:", components.length);
+        if (!compTpl) {
+            App.showToast("Load a PDF first", true);
+            return;
+        }
+        if (components.length === 0) {
+            App.showToast("Nothing to save - canvas is empty", true);
+            return;
+        }
+
+        var compPayload = {
             components: components.map(function (c) {
-                return {
+                var obj = {
                     page: c.page, partitionLabel: c.partitionLabel,
                     type: c.type, content: c.content,
                     x: c.x, y: c.y, w: c.w, h: c.h,
                     fontFamily: c.fontFamily, fontSize: c.fontSize
                 };
+                if (c.type === "pdfpath" && c.pathData) obj.pathData = c.pathData;
+                return obj;
             })
         };
-        App.api("PUT", "/api/templates/" + compTpl.id + "/components", payload).then(function () {
-            savedComponents = JSON.parse(JSON.stringify(components));
-            App.showToast("Components saved");
-        }).catch(function (err) {
-            App.showToast("Save failed: " + err.message, true);
-        });
+
+        if (compTpl.id) {
+            /* Existing template — save components directly */
+            App.api("PUT", "/api/templates/" + compTpl.id + "/components", compPayload).then(function () {
+                savedComponents = JSON.parse(JSON.stringify(components));
+                App.showToast("Components saved");
+            }).catch(function (err) {
+                App.showToast("Save failed: " + err.message, true);
+            });
+        } else {
+            /* PDF import — create template first, then save components */
+            var custId = document.getElementById("comp-customer").value;
+            var name = (document.getElementById("comp-tpl-name").value || "").trim();
+            if (!custId) { App.showToast("Select a customer", true); return; }
+            if (!name) { App.showToast("Enter a template name", true); return; }
+            var w = compTpl.width, h = compTpl.height;
+            var tplPayload = {
+                customerId: custId, name: name,
+                width: w, height: h,
+                orientation: h >= w ? "vertical" : "horizontal",
+                padding: { top: 0, bottom: 0, left: 0, right: 0 },
+                sewing: { position: "none", distance: 0, padding: 0 },
+                folding: { type: "none", padding: 0 },
+                printingArea: { x: 0, y: 0, w: w, h: h },
+                source: "pdf"
+            };
+            App.api("POST", "/api/templates", tplPayload).then(function (saved) {
+                compTpl.id = saved.id;
+                App.store.templates.push(saved);
+                return App.api("PUT", "/api/templates/" + saved.id + "/components", compPayload);
+            }).then(function () {
+                savedComponents = JSON.parse(JSON.stringify(components));
+                App.showToast("Template and components saved");
+                if (App.renderTemplateTable) App.renderTemplateTable();
+            }).catch(function (err) {
+                App.showToast("Save failed: " + err.message, true);
+            });
+        }
     }
 
     function resetComponents() {
@@ -827,12 +873,6 @@
             });
         });
 
-        /* Template select */
-        document.getElementById("comp-tpl-select").addEventListener("change", function () {
-            var id = parseInt(this.value);
-            if (id) { pdfFileName = ""; loadTemplate(id); }
-        });
-
         /* PDF file input */
         document.getElementById("comp-pdf-input").addEventListener("change", function () {
             if (this.files && this.files[0]) { parsePdfFile(this.files[0]); this.value = ""; }
@@ -851,7 +891,16 @@
         });
 
         /* Save / Reset */
-        document.getElementById("btn-comp-save").addEventListener("click", saveComponents);
+        var saveBtn = document.getElementById("btn-comp-save");
+        console.log("btn-comp-save element:", saveBtn);
+        if (saveBtn) {
+            saveBtn.addEventListener("click", function() {
+                console.log("Save button clicked!");
+                saveComponents();
+            });
+        } else {
+            console.error("btn-comp-save not found!");
+        }
         document.getElementById("btn-comp-reset").addEventListener("click", function () {
             App.confirm("Reset all component changes?").then(function (ok) { if (ok) resetComponents(); });
         });

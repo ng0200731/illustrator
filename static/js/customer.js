@@ -52,7 +52,8 @@
     App.refreshCustomerSelects = function () {
         var selects = [
             document.getElementById("cust-member-company"),
-            document.getElementById("tpl-customer")
+            document.getElementById("tpl-customer"),
+            document.getElementById("comp-customer")
         ];
         selects.forEach(function (sel) {
             if (!sel) return;
