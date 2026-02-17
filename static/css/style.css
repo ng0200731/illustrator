@@ -870,6 +870,14 @@ tbody tr:hover {
     pointer-events: none;
 }
 
+.rubber-band {
+    position: absolute;
+    border: 1px dashed #09f;
+    background: rgba(0, 153, 255, 0.1);
+    pointer-events: none;
+    z-index: 999;
+}
+
 .resize-handle {
     position: absolute;
     right: -4px;

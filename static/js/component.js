@@ -8,6 +8,8 @@
     var components = [];
     var savedComponents = [];
     var selectedIdx = -1;
+    var selectedSet = [];  /* multi-select indices for rubber-band */
+    var rubberBand = null; /* { startX, startY } in mm */
     var sc = 3;
     var pan = { x: 0, y: 0, zoom: 1, spaceDown: false, dragging: false, startX: 0, startY: 0, origX: 0, origY: 0 };
     var dragState = null;
@@ -102,6 +104,23 @@
                 selectedIdx = idx;
                 renderCanvas();
             });
+            li.addEventListener("mouseenter", function () {
+                var pathEl = document.querySelector('#component-preview svg path[data-comp-index="' + idx + '"]');
+                if (pathEl) {
+                    pathEl.dataset.origStroke = pathEl.getAttribute("stroke");
+                    pathEl.dataset.origWidth = pathEl.getAttribute("stroke-width") || "";
+                    pathEl.setAttribute("stroke", "#09f");
+                    pathEl.setAttribute("stroke-width", "1");
+                }
+            });
+            li.addEventListener("mouseleave", function () {
+                var pathEl = document.querySelector('#component-preview svg path[data-comp-index="' + idx + '"]');
+                if (pathEl) {
+                    pathEl.setAttribute("stroke", pathEl.dataset.origStroke || "none");
+                    if (pathEl.dataset.origWidth) pathEl.setAttribute("stroke-width", pathEl.dataset.origWidth);
+                    else pathEl.removeAttribute("stroke-width");
+                }
+            });
             list.appendChild(li);
         });
     }
@@ -173,13 +192,14 @@
                 pathEl.setAttribute("stroke-linecap", "round");
                 pathEl.setAttribute("stroke-linejoin", "round");
                 pathEl.style.cursor = "pointer";
-                if (idx === selectedIdx) {
+                if (idx === selectedIdx || selectedSet.indexOf(idx) >= 0) {
                     pathEl.setAttribute("filter", "url(#sel-outline)");
                 }
                 pathEl.dataset.compIndex = String(idx);
                 pathEl.addEventListener("mousedown", function (e) {
                     e.stopPropagation();
                     selectedIdx = idx;
+                    selectedSet = [];
                     renderCanvas();
                 });
                 svg.appendChild(pathEl);
@@ -625,9 +645,15 @@
             /* Delete key */
             if ((e.key === "Delete" || e.key === "Backspace") && editingIdx < 0 &&
                 document.getElementById("subtab-tpl-component").offsetParent) {
-                /* Delete selected component */
-                if (selectedIdx >= 0) {
-                    e.preventDefault();
+                e.preventDefault();
+                if (selectedSet.length > 0) {
+                    /* Delete multi-selected components (reverse order to keep indices valid) */
+                    selectedSet.sort(function (a, b) { return b - a; });
+                    selectedSet.forEach(function (i) { components.splice(i, 1); });
+                    selectedSet = [];
+                    selectedIdx = -1;
+                    renderCanvas();
+                } else if (selectedIdx >= 0) {
                     components.splice(selectedIdx, 1);
                     selectedIdx = -1;
                     renderCanvas();
@@ -665,6 +691,66 @@
             var wrap = preview.querySelector(".preview-wrap");
             if (wrap) wrap.style.transform = "translate(" + pan.x + "px," + pan.y + "px) scale(" + pan.zoom + ")";
         }, { passive: false });
+
+        /* Rubber-band selection for pdfpath */
+        preview.addEventListener("mousedown", function (e) {
+            if (pan.spaceDown || e.button !== 0) return;
+            var canvasEl = preview.querySelector(".label-canvas");
+            if (!canvasEl || !compTpl) return;
+            var cr = canvasEl.getBoundingClientRect();
+            var esc = sc * pan.zoom;
+            var mx = (e.clientX - cr.left) / esc;
+            var my = (e.clientY - cr.top) / esc;
+            if (mx < 0 || my < 0 || mx > compTpl.width || my > compTpl.height) return;
+            rubberBand = { startX: mx, startY: my, curX: mx, curY: my, el: null };
+            selectedSet = [];
+            selectedIdx = -1;
+        });
+        document.addEventListener("mousemove", function (e) {
+            if (!rubberBand || pan.dragging) return;
+            var canvasEl = preview.querySelector(".label-canvas");
+            if (!canvasEl) return;
+            var cr = canvasEl.getBoundingClientRect();
+            var esc = sc * pan.zoom;
+            rubberBand.curX = (e.clientX - cr.left) / esc;
+            rubberBand.curY = (e.clientY - cr.top) / esc;
+            /* Draw/update rubber-band rectangle */
+            if (!rubberBand.el) {
+                rubberBand.el = document.createElement("div");
+                rubberBand.el.className = "rubber-band";
+                canvasEl.appendChild(rubberBand.el);
+            }
+            var rx = Math.min(rubberBand.startX, rubberBand.curX) * sc;
+            var ry = Math.min(rubberBand.startY, rubberBand.curY) * sc;
+            var rw = Math.abs(rubberBand.curX - rubberBand.startX) * sc;
+            var rh = Math.abs(rubberBand.curY - rubberBand.startY) * sc;
+            rubberBand.el.style.left = rx + "px";
+            rubberBand.el.style.top = ry + "px";
+            rubberBand.el.style.width = rw + "px";
+            rubberBand.el.style.height = rh + "px";
+        });
+        document.addEventListener("mouseup", function () {
+            if (!rubberBand) return;
+            var sx = Math.min(rubberBand.startX, rubberBand.curX);
+            var sy = Math.min(rubberBand.startY, rubberBand.curY);
+            var ex = Math.max(rubberBand.startX, rubberBand.curX);
+            var ey = Math.max(rubberBand.startY, rubberBand.curY);
+            if (rubberBand.el) rubberBand.el.remove();
+            /* Only select if dragged more than 2mm */
+            if (ex - sx > 2 || ey - sy > 2) {
+                selectedSet = [];
+                components.forEach(function (c, i) {
+                    if (c.type !== "pdfpath") return;
+                    /* Check bbox intersection */
+                    if (c.x + c.w >= sx && c.x <= ex && c.y + c.h >= sy && c.y <= ey) {
+                        selectedSet.push(i);
+                    }
+                });
+                selectedIdx = -1;
+                renderCanvas();
+            }
+            rubberBand = null;
+        });
 
         var fitBtn = document.getElementById("btn-comp-fit");
         if (fitBtn) fitBtn.addEventListener("click", function () {
