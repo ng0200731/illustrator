@@ -454,33 +454,40 @@ def api_get_components(tid):
 
 @app.route("/api/templates/<int:tid>/components", methods=["PUT"])
 def api_save_components(tid):
-    d = request.get_json()
-    db = get_db()
-    db.execute("UPDATE templates SET source='pdf' WHERE id=?", (tid,))
-    db.execute("DELETE FROM components WHERE template_id=?", (tid,))
-    out = []
-    for i, c in enumerate(d.get("components", [])):
-        path_data_json = json.dumps(c["pathData"]) if c.get("pathData") else None
-        cur = db.execute(
-            """INSERT INTO components
-               (template_id, partition_id, page, type, content, x, y, w, h,
-                font_family, font_size, sort_order, path_data)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (tid, c.get("partitionId"), c.get("page", 0), c["type"],
-             c.get("content", ""), c["x"], c["y"], c["w"], c["h"],
-             c.get("fontFamily", "Arial"), c.get("fontSize", 8), i, path_data_json)
-        )
-        out.append({"id": cur.lastrowid, "template_id": tid,
-                     "partition_id": c.get("partitionId"),
-                     "page": c.get("page", 0), "type": c["type"],
-                     "content": c.get("content", ""),
-                     "x": c["x"], "y": c["y"], "w": c["w"], "h": c["h"],
-                     "font_family": c.get("fontFamily", "Arial"),
-                     "font_size": c.get("fontSize", 8), "sort_order": i,
-                     "path_data": c.get("pathData")})
-    db.commit()
-    db.close()
-    return jsonify(out)
+    try:
+        d = request.get_json()
+        db = get_db()
+        db.execute("UPDATE templates SET source='pdf' WHERE id=?", (tid,))
+        db.execute("DELETE FROM components WHERE template_id=?", (tid,))
+        out = []
+        for i, c in enumerate(d.get("components", [])):
+            path_data_json = json.dumps(c["pathData"]) if c.get("pathData") else None
+            cur = db.execute(
+                """INSERT INTO components
+                   (template_id, partition_id, page, type, content, x, y, w, h,
+                    font_family, font_size, sort_order, path_data)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (tid, c.get("partitionId"), c.get("page", 0), c["type"],
+                 c.get("content", ""), c["x"], c["y"], c["w"], c["h"],
+                 c.get("fontFamily", "Arial"), c.get("fontSize", 8), i, path_data_json)
+            )
+            out.append({"id": cur.lastrowid, "template_id": tid,
+                         "partition_id": c.get("partitionId"),
+                         "page": c.get("page", 0), "type": c["type"],
+                         "content": c.get("content", ""),
+                         "x": c["x"], "y": c["y"], "w": c["w"], "h": c["h"],
+                         "font_family": c.get("fontFamily", "Arial"),
+                         "font_size": c.get("fontSize", 8), "sort_order": i,
+                         "path_data": c.get("pathData")})
+        db.commit()
+        db.close()
+        return jsonify(out)
+    except Exception as e:
+        print(f"Error saving components: {e}")
+        print(f"Component data: {d.get('components', [])}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/export/pdf", methods=["POST"])
